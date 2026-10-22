@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carnet des Bois</title>
+<meta name="theme-color" content="#2d5b3b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+
+/* Mise en page : appli mobile à une colonne, en-tête collant, barre d'onglets en bas (pouce), cartes de saisie empilées */
+:root{
+  --bg:#e8ede5; --surface:#f8faf5; --surface-2:#eef2ea; --ink:#18241c; --muted:#56675b; --line:#cdd7c9;
+  --moss:#2d5b3b; --moss-ink:#f3f7f1; --moss-soft:#d8e6d9;
+  --chant:#c77c0f; --chant-soft:#f5e2c0;
+  --rain:#5d8fc2; --rain-strong:#1f4f80; --empty:#8a958c; --danger:#a8432c;
+  --sp1:#c4921c; --sp2:#b07d50; --sp3:#3b3848; --sp4:#e0701c; --sp5:#7b4a2b;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1712; --surface:#17211a; --surface-2:#1e2a22; --ink:#e2eae1; --muted:#9aab9e; --line:#2b3a30;
+    --moss:#88bd95; --moss-ink:#0d1911; --moss-soft:#22392a;
+    --chant:#f0a43a; --chant-soft:#3a2c13;
+    --rain:#6f9fd0; --rain-strong:#b0d0f2; --empty:#7b867e; --danger:#e48b74;
+    --sp1:#dcae3c; --sp2:#cfa27a; --sp3:#aaa3cc; --sp4:#f08a3a; --sp5:#c99068;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1712; --surface:#17211a; --surface-2:#1e2a22; --ink:#e2eae1; --muted:#9aab9e; --line:#2b3a30;
+  --moss:#88bd95; --moss-ink:#0d1911; --moss-soft:#22392a;
+  --chant:#f0a43a; --chant-soft:#3a2c13;
+  --rain:#6f9fd0; --rain-strong:#b0d0f2; --empty:#7b867e; --danger:#e48b74;
+  --sp1:#dcae3c; --sp2:#cfa27a; --sp3:#aaa3cc; --sp4:#f08a3a; --sp5:#c99068;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--chant);outline-offset:2px}
+
+/* En-tête */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:1001;background:var(--moss)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:1000;background:var(--moss);color:var(--moss-ink);
+  padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top-in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.brand{flex:1;min-width:0}
+.brand h1{font-size:1.3rem;font-weight:800;line-height:1.1}
+.brand small{display:block;font-size:.78rem;opacity:.8;letter-spacing:.02em}
+.net{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:99px;border:1px solid currentColor;opacity:.85;white-space:nowrap}
+.syncbtn{display:flex;align-items:center;gap:6px;background:var(--moss-ink);color:var(--moss);border:0;border-radius:99px;padding:7px 12px;font-weight:700;font-size:.88rem;cursor:pointer}
+.syncbtn:disabled{opacity:.55;cursor:default}
+.syncbtn .badge{background:var(--chant);color:#fff;border-radius:99px;min-width:20px;height:20px;display:inline-grid;place-items:center;font-size:.75rem;padding:0 5px}
+.iconbtn{background:transparent;border:1px solid currentColor;color:inherit;border-radius:10px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;opacity:.9}
+.demo{background:var(--chant-soft);color:var(--ink);font-size:.82rem;text-align:center;
+  padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* Contenu */
+main{max-width:760px;margin:0 auto;padding-block:14px 110px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.tab{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card h2{font-size:1.05rem;font-weight:600}
+.lab{font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;display:block;margin-bottom:6px}
+.hint{font-size:.85rem;color:var(--muted);margin:0}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>*{flex:1 1 160px;min-width:0}
+input[type=date],input[type=number],input[type=text],input[type=url],select,textarea{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+textarea{min-height:70px;resize:vertical}
+
+/* Mode */
+.mode{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:6px}
+.mode button{border:0;border-radius:10px;padding:14px 8px;background:transparent;font-weight:700;font-size:1rem;cursor:pointer;color:var(--muted)}
+.mode button[aria-pressed=true]{background:var(--moss);color:var(--moss-ink)}
+.mode button.vide[aria-pressed=true]{background:var(--empty);color:#fff}
+
+/* Puces */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{border:1px solid var(--line);background:var(--surface-2);border-radius:99px;padding:8px 13px;cursor:pointer;font-size:.92rem;display:inline-flex;align-items:center;gap:7px}
+.chips button[aria-pressed=true]{background:var(--moss);color:var(--moss-ink);border-color:var(--moss)}
+.chips.big button{padding:11px 14px;font-weight:700}
+.dot{width:11px;height:11px;border-radius:50%;flex:none;display:inline-block;border:1px solid rgba(0,0,0,.15)}
+.chips small{opacity:.75;font-weight:400}
+
+/* GPS */
+.gpsbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer;background:var(--moss);color:var(--moss-ink);font-size:1rem}
+.btn.ghost{background:transparent;color:var(--moss);border:1.5px solid var(--moss)}
+.btn.wide{width:100%;padding:16px;font-size:1.08rem}
+.btn:disabled{opacity:.6;cursor:progress}
+.gpsstat{font-size:.88rem;color:var(--muted);flex:1;min-width:140px}
+.coords{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+.spotban{border-radius:10px;padding:10px 12px;font-size:.93rem;background:var(--surface-2);border:1px dashed var(--line)}
+.spotban.in{background:var(--moss-soft);border:1px solid var(--moss)}
+.spotban.new{background:var(--chant-soft);border:1px solid var(--chant)}
+.spotban b{font-family:var(--f-display)}
+.minimap{height:260px;border-radius:12px;border:1px solid var(--line);z-index:0}
+.bigmap{height:min(58vh,480px);border-radius:var(--r);border:1px solid var(--line);z-index:0}
+.pin{background:none;border:0}
+.pin span{display:block;width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--chant);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.leaflet-tooltip.sptip{background:var(--surface);color:var(--ink);border:1px solid var(--line);font-family:var(--f-body);font-size:.75rem;padding:2px 6px;box-shadow:none}
+.leaflet-popup-content{font-family:var(--f-body);font-size:.9rem;margin:12px 14px}
+.leaflet-popup-content b{font-family:var(--f-display);font-size:1rem}
+.leaflet-popup-content button{margin-top:8px;border:0;background:#2d5b3b;color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700}
+
+/* Bilan */
+.bilan{display:flex;flex-direction:column;gap:8px}
+.tot{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line)}
+.tot b{font-variant-numeric:tabular-nums}
+.lot{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;font-size:.88rem;padding:6px 0}
+.lot .meta{color:var(--muted);font-size:.8rem}
+.st{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;font-weight:700;padding:3px 7px;border-radius:99px;white-space:nowrap}
+.st.wait{background:var(--chant-soft);color:var(--chant)}
+.st.ok{background:var(--moss-soft);color:var(--moss)}
+.formmsg{font-size:.9rem;color:var(--danger);min-height:1.2em;margin:0}
+
+/* Liste spots */
+.spots{display:flex;flex-direction:column}
+.spot{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer;background:none;border-left:0;border-right:0;border-top:0;text-align:left;width:100%}
+.spot:hover{background:var(--surface-2)}
+.spot .nm{font-weight:700;font-family:var(--f-display)}
+.spot .id{font-family:var(--f-mono);font-size:.74rem;color:var(--muted)}
+.spot .ct{text-align:right;font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.3}
+.spot .ct b{color:var(--ink);font-size:1rem}
+.sps{display:flex;gap:4px;margin-top:3px;flex-wrap:wrap}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.82rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+
+/* Analyse */
+.indice{background:var(--moss);color:var(--moss-ink);border-radius:var(--r);padding:16px;display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:center}
+.indice .big{font-family:var(--f-display);font-weight:800;font-size:2.6rem;line-height:1;font-variant-numeric:tabular-nums}
+.indice .big small{font-size:1rem;font-weight:600}
+.indice h3{font-size:1rem;font-weight:600}
+.indice p{margin:0;font-size:.88rem;opacity:.9}
+.indice .now{grid-column:1/-1;border-top:1px solid color-mix(in srgb,var(--moss-ink) 30%,transparent);padding-top:10px;margin-top:4px;font-size:.92rem;opacity:1}
+.tw{overflow-x:auto;margin:0 -4px}
+table{border-collapse:collapse;width:100%;font-size:.88rem;font-variant-numeric:tabular-nums}
+th{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+td.y{font-family:var(--f-display);font-weight:700}
+td .sub{display:block;font-size:.75rem;color:var(--muted)}
+td.bar{background-image:linear-gradient(90deg,color-mix(in srgb,var(--rain) 28%,transparent) var(--w),transparent var(--w));background-repeat:no-repeat}
+.cv{display:inline-flex;align-items:center;gap:6px}
+.cv i{display:inline-block;height:8px;border-radius:4px}
+.chart{position:relative;height:270px}
+.chart.small{height:230px}
+.ychips{display:flex;gap:6px;flex-wrap:wrap}
+.ychips button{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:5px 11px;cursor:pointer;font-family:var(--f-display);font-weight:600}
+.ychips button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* Onglets bas */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:1000;background:var(--surface);border-top:1px solid var(--line);
+  padding-top:6px;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+.nav-in{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.nav button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;font-size:.78rem;font-weight:700;color:var(--muted);cursor:pointer;border-radius:10px}
+.nav button svg{width:24px;height:24px}
+.nav button[aria-selected=true]{color:var(--moss);background:var(--moss-soft)}
+
+/* Toast & réglages */
+.toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.92rem;z-index:2000;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+dialog{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink);padding:0;width:min(520px,calc(100% - 32px))}
+dialog::backdrop{background:rgba(10,20,14,.5)}
+dialog form{padding:18px;display:flex;flex-direction:column;gap:14px}
+.dlgfoot{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+@media (min-width:640px){.minimap{height:300px}}
+
+/* --- v2 : secteurs, pesées --- */
+.sec{border-bottom:1px solid var(--line)}
+.sec summary{list-style:none;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 2px;cursor:pointer}
+.sec summary::-webkit-details-marker{display:none}
+.sec summary .nm{font-weight:800;font-family:var(--f-display)}
+.sec[open] summary{background:var(--surface-2)}
+.sec .inner{padding:4px 0 10px 26px;display:flex;flex-direction:column}
+.sec .inner .spot{padding:8px 2px;border-bottom:1px dashed var(--line)}
+.sec .acts{display:flex;gap:8px;flex-wrap:wrap;padding-top:8px}
+.btn.sm{padding:7px 12px;font-size:.88rem;border-radius:10px}
+.ring{width:16px;height:16px;border-radius:50%;border:2px dashed var(--ink);flex:none;display:inline-block}
+.pes{display:grid;grid-template-columns:1fr 110px;gap:8px 12px;align-items:center}
+.pes label{display:flex;align-items:center;gap:8px;font-size:.95rem}
+.rep{font-size:.82rem;color:var(--muted);padding:2px 0 6px 20px}
+.src{display:inline-block;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;font-weight:700;padding:3px 8px;border-radius:99px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.indice .src{background:transparent;color:inherit;border-color:currentColor;opacity:.85}
+.leaflet-tooltip.sectip{background:transparent;border:0;box-shadow:none;font-family:var(--f-display);font-weight:800;font-size:.8rem;color:#1d2a22;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff}
+
+/* --- Version finale --- */
+.nav-in{max-width:600px;grid-template-columns:repeat(4,1fr)}
+.status{font-size:.82rem;text-align:center;background:var(--surface-2);color:var(--muted);border-bottom:1px solid var(--line);cursor:pointer;
+  padding-block:6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.status.warn{background:var(--chant-soft);color:var(--ink)}
+.nomap{display:grid;place-items:center;text-align:center;color:var(--muted);font-size:.9rem;padding:16px;background:var(--surface-2)}
+.rules{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;font-size:.95rem}
+.under{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.under figure{margin:0;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:4px;align-items:center;text-align:center}
+.under figure.bad{border-color:var(--danger)}
+.under svg{width:100%;max-width:140px;height:auto;color:var(--ink)}
+.under figcaption{font-size:.8rem;line-height:1.3}
+.under figcaption b{display:block;font-family:var(--f-display);font-size:.92rem}
+.fiche{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.fiche summary{list-style:none;display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer}
+.fiche summary::-webkit-details-marker{display:none}
+.fiche summary .t{flex:1;min-width:0}
+.fiche summary h2{font-size:1.1rem}
+.fiche summary i{font-style:italic;color:var(--muted);font-size:.85rem}
+.fiche summary .chev{transition:transform .2s;color:var(--muted)}
+.fiche[open] summary .chev{transform:rotate(90deg)}
+.fiche .body{padding:0 14px 16px;display:flex;flex-direction:column;gap:14px}
+.meta2{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.85rem;color:var(--muted)}
+.meta2 b{color:var(--ink)}
+.fiche h3{font-size:.95rem;font-family:var(--f-display);font-weight:600;margin-bottom:6px}
+.fiche ul{margin:0;padding-left:1.15em;display:flex;flex-direction:column;gap:5px;font-size:.93rem}
+.piege{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;font-size:.92rem}
+.piege .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.piege .hd b{font-family:var(--f-display)}
+.piege .hd i{color:var(--muted);font-size:.82rem}
+.lvl{font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap}
+.lvl.mortel{background:var(--danger);color:#fff}
+.lvl.toxique{background:color-mix(in srgb,var(--danger) 18%,transparent);color:var(--danger);border:1px solid var(--danger)}
+.lvl.immangeable{background:var(--chant-soft);color:var(--chant)}
+.lvl.ok{background:var(--moss-soft);color:var(--moss)}
+.piege.mortel{border-color:var(--danger);border-width:2px}
+.gal{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.gal button{flex:none;border:1px solid var(--line);border-radius:10px;padding:0;background:var(--surface-2);cursor:pointer;width:120px;text-align:left;overflow:hidden}
+.gal img{display:block;width:120px;height:96px;object-fit:cover}
+.gal span{display:block;font-size:.72rem;padding:4px 6px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gal .empty{font-size:.85rem;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:10px 12px;width:100%}
+.urg{border:2px solid var(--danger);border-radius:var(--r);padding:14px;background:var(--surface);font-size:.93rem;display:flex;flex-direction:column;gap:6px}
+.urg h2{font-size:1rem;color:var(--danger)}
+#lightbox img{display:block;max-width:100%;max-height:75vh;margin:0 auto;border-radius:8px}
+#lightbox .cap{padding:10px 4px 0;font-size:.92rem}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <h1>Carnet des Bois</h1>
+      <small>Cueillettes de Mic &amp; Kat</small>
+    </div>
+    <span class="net" id="net">En ligne</span>
+    <button class="syncbtn" id="syncBtn" type="button" title="Envoyer les saisies en attente et actualiser depuis le Drive">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg>
+      <span id="syncLbl">Actualiser</span><span class="badge" id="syncCount" hidden>0</span>
+    </button>
+    <button class="iconbtn" id="setBtn" type="button" aria-label="Réglages">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </div>
+</header>
+<div class="status" id="status"></div>
+
+<main>
+<!-- ============ ONGLET 1 : SAISIE ============ -->
+<section class="tab" id="tab-saisie">
+  <div class="mode" role="group" aria-label="Type de saisie">
+    <button type="button" id="modeC" aria-pressed="true">🍄 Cueillette</button>
+    <button type="button" id="modeV" class="vide" aria-pressed="false">🚫 Rien trouvé</button>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div><label class="lab" for="fDate">Date</label><input type="date" id="fDate"></div>
+      <div><span class="lab">Cueilleur</span><div class="chips" id="cPick"></div></div>
+    </div>
+  </div>
+
+  <div class="card" id="lotCard">
+    <h2>Le lot</h2>
+    <div><span class="lab">Espèce</span><div class="chips big" id="cSp"></div></div>
+    <div><span class="lab">Quantité approximative</span><div class="chips" id="cQty"></div></div>
+    <div><span class="lab">Taille moyenne (largeur du chapeau)</span><div class="chips" id="cSize"></div></div>
+    <div><span class="lab">Décision</span><div class="chips" id="cDec"></div></div>
+  </div>
+  <p class="hint" id="videHint" hidden>Sortie sans trouvaille sur ce coin. Ces passages à vide servent à dater le début et la fin de saison dans l'analyse.</p>
+
+  <div class="card">
+    <h2>Position</h2>
+    <div class="gpsbar">
+      <button class="btn" type="button" id="gpsBtn">Capturer GPS</button>
+      <span class="gpsstat" id="gpsStat">Haute précision : jusqu'à 20 s pour affiner le signal sous les arbres.</span>
+    </div>
+    <div class="spotban" id="spotBan">Capturez la position, ou touchez la carte pour placer le point.</div>
+    <div class="minimap" id="miniMap"></div>
+    <div class="coords" id="coords">Point déplaçable : faites glisser le repère orange ou touchez la carte.</div>
+  </div>
+
+  <div class="card">
+    <label class="lab" for="fRem">Remarques</label>
+    <textarea id="fRem" placeholder="Mousse humide, sous les hêtres, beaucoup de limaces…"></textarea>
+  </div>
+
+  <p class="formmsg" id="formMsg"></p>
+  <button class="btn wide" type="button" id="saveBtn">Enregistrer la cueillette</button>
+
+  <div class="card">
+    <h2 id="bilanTitle">Bilan du jour</h2>
+    <div class="bilan" id="bilan"></div>
+  </div>
+
+  <div class="card">
+    <h2>Pesée à la maison</h2>
+    <p class="hint">Le poids total par espèce pour la journée. Il est réparti automatiquement entre les spots, selon la quantité notée sur chaque lot ramassé.</p>
+    <div><label class="lab" for="pDate">Journée pesée</label><input type="date" id="pDate"></div>
+    <div class="pes" id="pesForm"></div>
+    <button class="btn" type="button" id="pesBtn">Enregistrer la pesée</button>
+  </div>
+</section>
+
+<!-- ============ ONGLET 2 : CARTE ============ -->
+<section class="tab" id="tab-carte" hidden>
+  <div class="card">
+    <div class="row">
+      <div><label class="lab" for="mYear">Année</label><select id="mYear"></select></div>
+      <div><label class="lab" for="mSp">Espèce</label><select id="mSp"></select></div>
+      <div><label class="lab" for="mPick">Cueilleur</label><select id="mPick"></select></div>
+    </div>
+    <p class="hint">Les filtres ne gardent que les spots où cette espèce a été trouvée cette année-là, par ce cueilleur.</p>
+  </div>
+  <div class="bigmap" id="bigMap"></div>
+  <div class="legend" id="legend"></div>
+  <div class="card">
+    <h2 id="secTitle">Secteurs</h2>
+    <p class="hint" id="secHint"></p>
+    <div class="spots" id="secList"></div>
+    <p class="hint">Pour renommer un secteur ou un spot : Google Sheets, onglets « Secteurs » et « Spots », colonne B. L'appli reprend le nom à l'actualisation suivante.</p>
+  </div>
+</section>
+
+<!-- ============ ONGLET 3 : ANALYSE ============ -->
+<section class="tab" id="tab-analyse" hidden>
+  <div class="card">
+    <div class="row">
+      <div><label class="lab" for="aPlace">Secteur ou spot</label><select id="aPlace"></select></div>
+      <div><label class="lab" for="aSp">Espèce</label><select id="aSp"></select></div>
+    </div>
+  </div>
+
+  <div class="indice" id="indice"></div>
+
+  <div class="card">
+    <h2>Récoltes par année</h2>
+    <div class="tw"><table id="tRec"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>Saisons comparées</h2>
+    <p class="hint">Chaque ligne est une année. Triangles bleus : épisode pluvieux déclencheur. Ronds : cueillettes. Croix : passages à vide.</p>
+    <div class="chart small"><canvas id="chComp"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>Pluie et sorties, saison <span id="seasonY"></span></h2>
+    <div class="ychips" id="yChips"></div>
+    <div class="chart"><canvas id="chSeason"></canvas></div>
+    <p class="hint">Barres foncées : jours où le cumul atteint le seuil d'épisode pluvieux (réglable).</p>
+  </div>
+
+  <div class="card">
+    <h2>Profil météo d'automne</h2>
+    <div class="tw"><table id="tMet"></table></div>
+    <p class="hint" id="metNote"></p>
+  </div>
+</section>
+
+<!-- ============ ONGLET 4 : ESPÈCES ============ -->
+<section class="tab" id="tab-especes" hidden>
+  <div class="card">
+    <h2>Les règles d'or</h2>
+    <ol class="rules">
+      <li><b>Jamais de champignon sans certitude à 100 %.</b> Au moindre doute, montre-le à un pharmacien ou à une société mycologique.</li>
+      <li>Cueille le champignon <b>entier</b>, base du pied comprise : c'est souvent là que se voit la différence.</li>
+      <li><b>Vérifie chaque exemplaire</b>, pas seulement le premier du coin. Un toxique peut pousser au milieu des bons.</li>
+      <li><b>Une espèce par panier</b> ou par sac, pour éviter les mélanges.</li>
+      <li>Laisse les exemplaires trop jeunes, vieux, détrempés ou véreux.</li>
+      <li>Cuis toujours bien ces espèces (seuls les cèpes très frais se mangent aussi crus).</li>
+    </ol>
+    <p class="hint">Ces fiches aident à repérer, elles ne remplacent pas l'avis d'un connaisseur.</p>
+  </div>
+
+  <div class="card">
+    <h2>Regarde d'abord sous le chapeau</h2>
+    <div class="under" id="under"></div>
+  </div>
+
+  <div id="fiches" style="display:flex;flex-direction:column;gap:12px"></div>
+
+  <div class="card">
+    <h2>Photos</h2>
+    <p class="hint" id="photoHint"></p>
+    <button class="btn ghost" type="button" id="photoBtn">Charger les photos du Drive</button>
+  </div>
+
+  <div class="urg">
+    <h2>En cas de malaise après un repas de champignons</h2>
+    <div>Appelle le <b>15</b> (ou le <b>112</b>), ou un centre antipoison, même si les symptômes semblent légers ou tardent : certains champignons mortels n'agissent qu'après 6 heures, voire plusieurs jours.</div>
+    <div>Garde les restes du repas et les épluchures pour l'identification.</div>
+  </div>
+</section>
+</main>
+
+<nav class="nav" aria-label="Onglets">
+  <div class="nav-in" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="saisie" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Saisie</button>
+    <button role="tab" aria-selected="false" data-tab="carte" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Carte</button>
+    <button role="tab" aria-selected="false" data-tab="analyse" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Analyse</button>
+    <button role="tab" aria-selected="false" data-tab="especes" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 6 0 0 1 16 0z"/><path d="M10 12v6a2 2 0 0 0 4 0v-6"/></svg>Espèces</button>
+  </div>
+</nav>
+
+<div class="toast" id="toast" hidden></div>
+
+<dialog id="dlg">
+  <form method="dialog" id="setForm">
+    <h2>Réglages</h2>
+    <div><label class="lab" for="sUrl">URL de l'API Google Apps Script</label>
+      <input type="url" id="sUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+      <p class="hint">L'adresse obtenue au déploiement du script, finissant par /exec.</p></div>
+    <div><label class="lab" for="sCode">Code secret</label>
+      <input type="text" id="sCode" inputmode="numeric" maxlength="6" placeholder="4 à 6 chiffres" autocomplete="off">
+      <p class="hint">Le même que CODE_SECRET dans le script.</p></div>
+    <div class="row">
+      <div><label class="lab" for="sSeuil">Épisode pluvieux (mm)</label><input type="number" id="sSeuil" min="5" max="80" step="1"></div>
+      <div><label class="lab" for="sWin">… cumulés sur (jours)</label><input type="number" id="sWin" min="1" max="7" step="1"></div>
+    </div>
+    <p class="hint" id="radHint"></p>
+    <p class="formmsg" id="testMsg" style="color:var(--ink)"></p>
+    <div class="dlgfoot">
+      <button type="button" class="btn ghost" id="testBtn">Tester la connexion</button>
+      <button type="submit" class="btn">Fermer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="lightbox">
+  <form method="dialog" style="padding:12px;gap:8px">
+    <img id="lbImg" alt="">
+    <div class="cap" id="lbCap"></div>
+    <button type="submit" class="btn">Fermer</button>
+  </form>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+"use strict";
+/* ================= Constantes ================= */
+const localIso = d => new Date(d.getTime() - d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const TODAY = localIso(new Date());
+const CUR_Y = +TODAY.slice(0,4);
+const SPECIES = ['Chanterelle en tube','Pied-de-mouton','Trompette de la mort','Girolle','Cèpe'];
+const SP_VAR = {'Chanterelle en tube':'--sp1','Pied-de-mouton':'--sp2','Trompette de la mort':'--sp3','Girolle':'--sp4','Cèpe':'--sp5'};
+const SP_SHORT = {'Chanterelle en tube':'Chanterelle','Pied-de-mouton':'Pied-de-mouton','Trompette de la mort':'Trompette','Girolle':'Girolle','Cèpe':'Cèpe'};
+const QTY = ['1–5','5–20','20–50','50–100','100+'];
+const QTY_MID = [3,12,35,75,130];
+const SIZES = ['≈2 cm (1 doigt)','≈4 cm (2 doigts)','≈5 cm (3 doigts)','≈7 cm (4 doigts)','≈9 cm (une main)'];
+const DECISIONS = ['Ramassé','Laissé – trop petit','Laissé – vieux'];
+const PICKERS = ['Mic','Kat','Mic + Kat'];
+const LS_KEY = 'carnet-bois-v1', LS_PHOTOS = 'carnet-bois-photos', LS_MET = 'carnet-bois-meteo-direct';
+const MONTHS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+const HAS_MAP = typeof L !== 'undefined', HAS_CHART = typeof Chart !== 'undefined';
+
+/* ================= Outils ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const D = s => new Date(s + 'T00:00:00Z');
+const iso = d => d.toISOString().slice(0,10);
+const addDays = (s,n) => { const d = D(s); d.setUTCDate(d.getUTCDate()+n); return iso(d); };
+const diffDays = (a,b) => Math.round((D(a)-D(b))/864e5);
+const fmt = s => s ? s.slice(8,10)+'/'+s.slice(5,7) : '—';
+const fmtY = s => s ? fmt(s)+'/'+s.slice(2,4) : '—';
+const fmtLong = s => D(s).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const spColor = sp => cssv(SP_VAR[sp] || '--empty');
+const num = id => +String(id).split('-')[1] || 0;
+const byDate = (a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+const zoneOf = (lat,lng) => (Math.round(lat*20)/20).toFixed(2)+','+(Math.round(lng*20)/20).toFixed(2);
+/* Distance Haversine en mètres (même formule que dans Code.gs) */
+function haversine(a,b,c,d){ const R=6371000, t=Math.PI/180; const x=Math.sin((c-a)*t/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin((d-b)*t/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } }
+};
+
+/* ================= État (copie locale des données du Drive + saisies en attente) ================= */
+let S = Object.assign({
+  config:{rayonSpot:20, rayonSecteur:150, premiereAnnee:2022},
+  spots:[], secteurs:[], cueillettes:[], pesees:[], meteo:{}, maj:null,
+  pending:[], pendingPesees:[],
+  settings:{url:'', code:'', seuil:20, win:3},
+  ui:{cueilleur:'Mic + Kat', base:'Relief (OpenTopoMap)', tab:'saisie'}
+}, store.get(LS_KEY) || {});
+const save = () => { if (!store.set(LS_KEY, S)) toast('Mémoire du navigateur pleine : les données ne sont plus sauvegardées sur cet appareil.'); };
+const FIRST_Y = () => S.config.premiereAnnee || 2022;
+
+let REC = [];
+function rebuild(){
+  REC = [...S.cueillettes.map(r => Object.assign({}, r, {synced:true})), ...S.pending.map(r => Object.assign({}, r, {synced:false}))].sort(byDate);
+}
+const PES = () => { const m = new Map(); S.pesees.forEach(p => m.set(p.date+'|'+p.espece, p)); S.pendingPesees.forEach(p => m.set(p.date+'|'+p.espece, p)); return [...m.values()].filter(p => p.poids > 0); };
+const spotById = id => S.spots.find(s => s.id === id);
+const secById = id => S.secteurs.find(s => s.id === id);
+const secOfRec = r => r.secteurId || (spotById(r.spotId) || {}).secteurId || null;
+
+/* ================= API Google Apps Script ================= */
+async function api(action, extra){
+  if (!S.settings.url) throw new Error('Renseigne l\'URL du script dans les Réglages (roue dentée).');
+  const r = await fetch(S.settings.url, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(Object.assign({code:S.settings.code, action}, extra || {}))});
+  let j; try { j = await r.json(); } catch(e){ throw new Error('Réponse inattendue du script. Vérifie l\'URL (elle doit finir par /exec) et le déploiement « N\'importe qui ».'); }
+  if (!j.ok) throw new Error(j.erreur || 'Erreur du script.');
+  return j;
+}
+async function refresh(quiet){
+  const j = await api('donnees');
+  Object.assign(S, {config:j.config, spots:j.spots, secteurs:j.secteurs, cueillettes:j.cueillettes, pesees:j.pesees, meteo:j.meteo, maj:j.maj});
+  save(); rebuild(); renderAll(true);
+  if (!quiet) toast(`Données à jour : ${S.cueillettes.length} cueillettes, ${S.spots.length} spots, ${S.secteurs.length} secteurs.`);
+}
+let busy = false;
+async function syncAll(){
+  if (busy) return;
+  if (!navigator.onLine){ toast('Pas de réseau : les saisies restent sur le téléphone. Réessaie une fois connecté.'); return; }
+  busy = true; $('syncBtn').disabled = true; $('syncLbl').textContent = 'Envoi…';
+  try {
+    let msg = '';
+    if (S.pending.length){
+      const items = S.pending.map(({synced, ...r}) => r);
+      const res = await api('ajouter', {items});
+      const sent = new Set(items.map(i => i.uid));
+      S.pending = S.pending.filter(p => !sent.has(p.uid)); save();
+      msg = `${res.ajoutes} saisie${res.ajoutes>1?'s':''} envoyée${res.ajoutes>1?'s':''}` + (res.nouveauxSpots ? `, ${res.nouveauxSpots} nouveau${res.nouveauxSpots>1?'x':''} spot${res.nouveauxSpots>1?'s':''}` : '') + '. ';
+    }
+    if (S.pendingPesees.length){ await api('pesee', {items:S.pendingPesees}); S.pendingPesees = []; save(); msg += 'Pesées envoyées. '; }
+    $('syncLbl').textContent = 'Actualisation…';
+    await refresh(!!msg);
+    if (msg) toast(msg.trim());
+  } catch(e){ toast(e.message); }
+  finally { busy = false; renderSync(); }
+}
+function renderSync(){
+  const n = S.pending.length + S.pendingPesees.length;
+  $('syncCount').textContent = n; $('syncCount').hidden = !n;
+  $('syncBtn').disabled = busy; $('syncLbl').textContent = n ? 'Envoyer' : 'Actualiser';
+  const st = $('status');
+  if (!S.settings.url || !S.settings.code){ st.className = 'status warn'; st.textContent = 'Appli pas encore reliée au Drive : touche ici pour saisir l\'URL du script et le code secret.'; }
+  else { st.className = 'status'; st.textContent = (S.maj ? `Dernière actualisation : ${new Date(S.maj).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}` : 'Jamais actualisé') + ` · ${S.cueillettes.length} cueillettes` + (n ? ` · ${n} en attente` : ''); }
+}
+
+/* ================= Météo ================= */
+function seriesFromCompact(m){
+  const byYear = {};
+  if (!m) return byYear;
+  m.d.forEach((d,i) => {
+    const y = +d.slice(0,4), md = d.slice(5);
+    if (md < '07-01' || md > '11-30') return;
+    const s = byYear[y] ||= {dates:[],rain:[],tmin:[],tmax:[],idx:{}};
+    s.idx[d] = s.dates.length; s.dates.push(d); s.rain.push(+(m.p[i] || 0)); s.tmin.push(m.n[i]); s.tmax.push(m.x[i]);
+  });
+  return byYear;
+}
+/* Si le Drive n'a pas encore de météo pour cette zone : appel direct à Open-Meteo depuis la page */
+async function fetchDirect(zone){
+  const cache = store.get(LS_MET) || {};
+  if (cache[zone] && cache[zone].until === TODAY) return cache[zone].m;
+  const [lat,lng] = zone.split(',');
+  const q = `latitude=${lat}&longitude=${lng}&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&timezone=Europe%2FParis`;
+  const get = async u => { const r = await fetch(u); if (!r.ok) throw new Error(r.status); return (await r.json()).daily; };
+  const [a,b] = await Promise.all([get(`https://archive-api.open-meteo.com/v1/archive?${q}&start_date=${FIRST_Y()}-07-01&end_date=${addDays(TODAY,-7)}`),
+                                   get(`https://api.open-meteo.com/v1/forecast?${q}&past_days=30&forecast_days=1`)]);
+  const map = new Map();
+  [a,b].forEach(d => d.time.forEach((t,j) => { if (t <= TODAY) map.set(t, [d.precipitation_sum[j], d.temperature_2m_min[j], d.temperature_2m_max[j]]); }));
+  const dd = [...map.keys()].sort();
+  const m = {d:dd, p:dd.map(t => map.get(t)[0]), n:dd.map(t => map.get(t)[1]), x:dd.map(t => map.get(t)[2])};
+  cache[zone] = {until:TODAY, m}; store.set(LS_MET, cache);
+  return m;
+}
+async function getMeteo(zone){
+  if (S.meteo && S.meteo[zone]) return {series:seriesFromCompact(S.meteo[zone]), src:'drive'};
+  try { return {series:seriesFromCompact(await fetchDirect(zone)), src:'direct'}; } catch(e){ return {series:{}, src:'none'}; }
+}
+function episodeFlags(ser, seuil, win){
+  return ser.rain.map((_,i) => { let s=0; for (let j=Math.max(0,i-win+1); j<=i; j++) s += ser.rain[j]; return s >= seuil; });
+}
+function detectEpisodes(ser, seuil, win){
+  if (!ser) return [];
+  const f = episodeFlags(ser, seuil, win), out = [];
+  f.forEach((v,i) => { if (v && !f[i-1]) out.push(ser.dates[i]); });
+  return out;
+}
+
+/* ================= Spots (aperçu local ; le script décide à l'envoi) ================= */
+function findSpot(lat,lng){
+  for (const s of [...S.spots].sort((a,b) => num(a.id)-num(b.id))){ const d = haversine(lat,lng,s.lat,s.lng); if (d <= S.config.rayonSpot) return {spot:s, d}; }
+  return null;
+}
+function findSecteur(lat,lng){
+  for (const s of S.secteurs){ const d = haversine(lat,lng,s.lat,s.lng); if (d <= S.config.rayonSecteur) return {sec:s, d}; }
+  return null;
+}
+const nextNum = arr => Math.max(0, ...arr.map(x => num(x.id))) + 1;
+
+/* ================= Pesées et répartition estimée ================= */
+const isPicked = r => r.type === 'Cueillette' && (r.decision === 'Ramassé' || r.decision === '');
+const qtyWeight = r => { const i = QTY.indexOf(r.qte); return i >= 0 ? QTY_MID[i] : 10; };
+function estWeight(r){
+  if (!isPicked(r)) return null;
+  const p = PES().find(x => x.date === r.date && x.espece === r.espece); if (!p) return null;
+  const lots = REC.filter(x => x.date === r.date && x.espece === r.espece && isPicked(x));
+  const tot = lots.reduce((s,x) => s + qtyWeight(x), 0);
+  return Math.round(p.poids * qtyWeight(r) / tot);
+}
+
+/* ================= Cartes Leaflet ================= */
+function baseLayers(){
+  return {
+    'Relief (OpenTopoMap)': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {maxNativeZoom:17, maxZoom:19, attribution:'© OpenTopoMap (CC-BY-SA), © OpenStreetMap'}),
+    'Plan IGN': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}', {maxNativeZoom:19, maxZoom:19, attribution:'© IGN'}),
+    'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxNativeZoom:19, maxZoom:19, attribution:'© OpenStreetMap'})
+  };
+}
+function makeMap(el, center, zoom){
+  const layers = baseLayers();
+  const map = L.map(el).setView(center, zoom);
+  (layers[S.ui.base] || layers['Relief (OpenTopoMap)']).addTo(map);
+  L.control.layers(layers, null, {position:'topright'}).addTo(map);
+  L.control.scale({imperial:false}).addTo(map);
+  map.on('baselayerchange', e => { S.ui.base = e.name; save(); });
+  return map;
+}
+function noMap(el){ el.classList.add('nomap'); el.textContent = 'Carte indisponible (bibliothèque non chargée, probablement pas de réseau à l\'ouverture). La position GPS reste enregistrée normalement.'; }
+function biggestSecteur(){
+  const c = {}; REC.forEach(r => { const s = secOfRec(r); if (s) c[s] = (c[s]||0)+1; });
+  const id = Object.entries(c).sort((a,b) => b[1]-a[1])[0]?.[0];
+  return secById(id) || S.secteurs[0] || null;
+}
+const mapCenter = () => { const s = biggestSecteur(); return s ? {c:[s.lat,s.lng], z:16} : {c:[45.9,6.1], z:8}; };
+
+/* ================= Saisie ================= */
+const F = { mode:'c', date:TODAY, cueilleur:S.ui.cueilleur, espece:SPECIES[0], qte:null, taille:null, decision:DECISIONS[0], lat:null, lng:null, acc:null, alt:null };
+let mini, miniMarker, miniSpots;
+
+function chips(el, opts, key, render){
+  el.innerHTML = '';
+  opts.forEach(o => {
+    const b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = render ? render(o) : esc(o);
+    b.setAttribute('aria-pressed', F[key] === o);
+    b.onclick = () => { F[key] = o; if (key === 'cueilleur'){ S.ui.cueilleur = o; save(); }
+      [...el.children].forEach((c,i) => c.setAttribute('aria-pressed', opts[i] === o)); };
+    el.appendChild(b);
+  });
+}
+function sizeLabel(s){ const m = s.match(/^(\S+ cm) \((.+)\)$/); return m ? `${esc(m[1])} <small>${esc(m[2])}</small>` : esc(s); }
+function setMode(m){
+  F.mode = m;
+  $('modeC').setAttribute('aria-pressed', m === 'c'); $('modeV').setAttribute('aria-pressed', m === 'v');
+  $('lotCard').hidden = m !== 'c'; $('videHint').hidden = m !== 'v';
+  $('saveBtn').textContent = m === 'c' ? 'Enregistrer la cueillette' : 'Enregistrer le passage à vide';
+  $('formMsg').textContent = '';
+}
+function initSaisie(){
+  $('fDate').value = F.date;
+  $('fDate').onchange = e => { F.date = e.target.value || TODAY; $('pDate').value = F.date; renderBilan(); renderPesee(); };
+  chips($('cPick'), PICKERS, 'cueilleur');
+  chips($('cSp'), SPECIES, 'espece', o => `<span class="dot" style="background:var(${SP_VAR[o]})"></span>${esc(o)}`);
+  chips($('cQty'), QTY, 'qte');
+  chips($('cSize'), SIZES, 'taille', sizeLabel);
+  chips($('cDec'), DECISIONS, 'decision');
+  $('modeC').onclick = () => setMode('c'); $('modeV').onclick = () => setMode('v');
+  $('gpsBtn').onclick = captureGPS;
+  $('saveBtn').onclick = saveEntry;
+  $('pDate').value = TODAY; $('pDate').onchange = renderPesee;
+  $('pesBtn').onclick = savePesee;
+  if (!HAS_MAP){ noMap($('miniMap')); return; }
+  const mc = mapCenter();
+  mini = makeMap($('miniMap'), mc.c, mc.z);
+  miniSpots = L.layerGroup().addTo(mini);
+  drawMiniSpots();
+  const icon = L.divIcon({className:'pin', html:'<span></span>', iconSize:[26,26], iconAnchor:[13,26]});
+  miniMarker = L.marker(mc.c, {draggable:true, icon});
+  miniMarker.on('dragend', () => { const p = miniMarker.getLatLng(); setPoint(p.lat, p.lng, null, null, 'manuel'); });
+  mini.on('click', e => setPoint(e.latlng.lat, e.latlng.lng, null, null, 'manuel'));
+}
+function drawMiniSpots(){
+  if (!miniSpots) return;
+  miniSpots.clearLayers();
+  S.secteurs.forEach(s => L.circle([s.lat,s.lng], {radius:S.config.rayonSecteur, color:cssv('--ink'), weight:1.2, dashArray:'6 6', fill:false, interactive:false})
+    .bindTooltip(esc(s.nom), {permanent:true, direction:'center', className:'sectip'}).addTo(miniSpots));
+  S.spots.forEach(s => L.circle([s.lat,s.lng], {radius:S.config.rayonSpot, color:cssv('--moss'), weight:1.5, fillOpacity:.15}).addTo(miniSpots));
+}
+/* GPS haute précision : on affine pendant 20 s maximum, on garde la meilleure mesure */
+let gpsWatch = null, gpsTimer = null;
+function stopGPS(msg){
+  if (gpsWatch != null) navigator.geolocation.clearWatch(gpsWatch);
+  gpsWatch = null; clearTimeout(gpsTimer);
+  $('gpsBtn').disabled = false; $('gpsBtn').textContent = 'Recapturer GPS';
+  if (msg) $('gpsStat').textContent = msg;
+}
+function captureGPS(){
+  if (gpsWatch != null){ stopGPS(F.acc ? `Position gardée, précision ±${F.acc} m` : null); return; }
+  if (!navigator.geolocation){ $('gpsStat').textContent = 'Ce navigateur ne donne pas accès au GPS. Place le point à la main sur la carte.'; return; }
+  let best = null;
+  $('gpsBtn').textContent = 'Garder cette position';
+  $('gpsStat').textContent = 'Recherche du signal…';
+  gpsWatch = navigator.geolocation.watchPosition(pos => {
+    const c = pos.coords;
+    if (!best || c.accuracy < best.accuracy){ best = c; setPoint(c.latitude, c.longitude, Math.round(c.accuracy), c.altitude != null ? Math.round(c.altitude) : null, 'gps'); }
+    $('gpsStat').textContent = `Précision ±${Math.round(best.accuracy)} m, affinage en cours…`;
+    if (best.accuracy <= 8) stopGPS(`Position fixée, précision ±${Math.round(best.accuracy)} m`);
+  }, err => {
+    const m = {1:'Accès à la position refusé : autorise la localisation pour cette page dans le navigateur.', 2:'Position introuvable : sors un peu à découvert, ou place le point à la main.', 3:'Délai dépassé : place le point à la main ou réessaie.'}[err.code] || 'Erreur GPS.';
+    stopGPS(best ? `Position gardée, précision ±${Math.round(best.accuracy)} m` : m);
+  }, {enableHighAccuracy:true, timeout:20000, maximumAge:0});
+  gpsTimer = setTimeout(() => stopGPS(best ? `Position fixée, précision ±${Math.round(best.accuracy)} m` : 'Pas de signal en 20 s : place le point à la main sur la carte.'), 20000);
+}
+function setPoint(lat,lng,acc,alt,src){
+  F.lat = +lat.toFixed(6); F.lng = +lng.toFixed(6);
+  if (src === 'gps'){ F.acc = acc; F.alt = alt; } else { F.acc = null; }
+  if (mini){
+    if (!mini.hasLayer(miniMarker)) miniMarker.addTo(mini);
+    miniMarker.setLatLng([F.lat,F.lng]);
+    if (src === 'gps') mini.setView([F.lat,F.lng], Math.max(mini.getZoom(), 17));
+  }
+  if (src !== 'gps') $('gpsStat').textContent = 'Position ajustée à la main';
+  $('coords').textContent = `${F.lat.toFixed(5)}, ${F.lng.toFixed(5)}${F.acc ? ' · ±'+F.acc+' m' : ''}${F.alt != null ? ' · '+F.alt+' m d\'altitude' : ''}`;
+  renderSpotBanner();
+}
+function renderSpotBanner(){
+  const ban = $('spotBan');
+  if (F.lat == null){ ban.className = 'spotban'; ban.textContent = 'Capturez la position, ou touchez la carte pour placer le point.'; return; }
+  const f = findSpot(F.lat, F.lng);
+  if (f){ const sec = secById(f.spot.secteurId);
+    ban.className = 'spotban in'; ban.innerHTML = `Dans le spot <b>${esc(f.spot.nom)}</b> (à ${Math.round(f.d)} m du centre)${sec ? ` · secteur <b>${esc(sec.nom)}</b>` : ''}`; return; }
+  const fs = findSecteur(F.lat, F.lng);
+  ban.className = 'spotban new';
+  ban.innerHTML = `Hors des spots connus : un nouveau spot <b>Spot #${nextNum(S.spots)}</b> sera créé à l'envoi, ` +
+    (fs ? `dans le secteur <b>${esc(fs.sec.nom)}</b> (à ${Math.round(fs.d)} m).` : `avec un nouveau secteur.`) + ' Renommable dans le Drive.';
+}
+function saveEntry(){
+  const msg = $('formMsg');
+  if (F.lat == null){ msg.textContent = 'Placez d\'abord le point : bouton « Capturer GPS » ou toucher la carte.'; return; }
+  if (F.mode === 'c' && !F.qte){ msg.textContent = 'Indiquez une quantité approximative.'; return; }
+  if (F.mode === 'c' && !F.taille){ msg.textContent = 'Indiquez une taille approximative.'; return; }
+  msg.textContent = '';
+  const c = F.mode === 'c';
+  S.pending.push({uid:'W'+Date.now().toString(36)+Math.random().toString(36).slice(2,7), date:F.date, type:c ? 'Cueillette' : 'Rien trouvé',
+    espece:c ? F.espece : '', qte:c ? F.qte : '', taille:c ? F.taille : '', decision:c ? F.decision : '',
+    remarques:$('fRem').value.trim(), lat:F.lat, lng:F.lng, acc:F.acc, alt:F.alt, cueilleur:F.cueilleur, source:'Appli'});
+  save(); rebuild();
+  toast(c ? `${F.espece} enregistrée sur l'appareil. Le point est gardé pour saisir une autre espèce ici.` : 'Passage à vide enregistré sur l\'appareil.');
+  F.qte = null; F.taille = null; F.decision = DECISIONS[0]; $('fRem').value = '';
+  chips($('cQty'), QTY, 'qte'); chips($('cSize'), SIZES, 'taille', sizeLabel); chips($('cDec'), DECISIONS, 'decision');
+  renderAll();
+}
+function placeName(r){
+  if (r.spotNom) return r.spotNom;
+  const sp = r.spotId ? spotById(r.spotId) : null; if (sp) return sp.nom;
+  const f = findSpot(r.lat, r.lng); return f ? f.spot.nom : 'nouveau spot';
+}
+function renderBilan(){
+  const day = F.date;
+  $('bilanTitle').textContent = day === TODAY ? 'Bilan du jour' : 'Bilan du ' + fmtLong(day);
+  const recs = REC.filter(r => r.date === day);
+  const el = $('bilan');
+  if (!recs.length){ el.innerHTML = '<p class="hint">Aucune saisie pour cette date. Les lots apparaîtront ici, avec la répartition de la pesée.</p>'; return; }
+  const pes = PES();
+  const sps = [...new Set(recs.filter(r => r.espece).map(r => r.espece))];
+  let h = sps.map(sp => {
+    const p = pes.find(x => x.date === day && x.espece === sp), lots = recs.filter(r => r.espece === sp);
+    const rep = p ? lots.filter(isPicked).map(r => `${esc(placeName(r))} ≈ ${estWeight(r)} g`).join(' · ') : '';
+    return `<div class="tot"><span><span class="dot" style="background:var(${SP_VAR[sp]})"></span> ${esc(sp)}</span><span>${lots.length} lot${lots.length>1?'s':''} · <b>${p ? p.poids+' g' : 'pesée à faire'}</b></span></div>${rep ? `<div class="rep">Répartition estimée : ${rep}</div>` : ''}`;
+  }).join('');
+  h += recs.map(r => {
+    const what = r.type === 'Cueillette' ? [esc(r.espece), esc(r.qte), esc((r.taille||'').split(' (')[0])].filter(Boolean).join(' · ') : 'Rien trouvé';
+    return `<div class="lot"><span class="dot" style="background:${r.espece ? `var(${SP_VAR[r.espece]})` : 'var(--empty)'}"></span>
+      <div><div>${what}</div><div class="meta">${esc(placeName(r))}${r.cueilleur ? ' · '+esc(r.cueilleur) : ''}${r.decision ? ' · '+esc(r.decision) : ''}${r.remarques ? ' · '+esc(r.remarques) : ''}</div></div>
+      <span class="st ${r.synced ? 'ok' : 'wait'}">${r.synced ? 'Sur le Drive' : 'En attente'}</span></div>`;
+  }).join('');
+  el.innerHTML = h;
+}
+function renderPesee(){
+  const day = $('pDate').value || TODAY;
+  const found = new Set(REC.filter(r => r.date === day && isPicked(r)).map(r => r.espece));
+  const list = SPECIES.filter(sp => found.has(sp));
+  const pes = PES();
+  $('pesForm').innerHTML = list.length
+    ? list.map(sp => `<label for="pw-${SP_VAR[sp].slice(2)}"><span class="dot" style="background:var(${SP_VAR[sp]})"></span>${esc(sp)}</label>
+        <input type="number" id="pw-${SP_VAR[sp].slice(2)}" data-sp="${esc(sp)}" inputmode="numeric" min="0" step="10" placeholder="g" value="${pes.find(p => p.date === day && p.espece === sp)?.poids ?? ''}">`).join('')
+    : '<p class="hint" style="grid-column:1/-1">Aucun lot ramassé ce jour-là. Choisis une journée de cueillette.</p>';
+  $('pesBtn').hidden = !list.length;
+}
+function savePesee(){
+  const day = $('pDate').value || TODAY; let n = 0;
+  $('pesForm').querySelectorAll('input[data-sp]').forEach(i => {
+    const sp = i.dataset.sp, v = Math.max(0, +i.value || 0);
+    S.pendingPesees = S.pendingPesees.filter(p => !(p.date === day && p.espece === sp));
+    S.pendingPesees.push({date:day, espece:sp, poids:v}); if (v) n++;
+  });
+  save(); renderBilan(); renderSync();
+  toast(`Pesée du ${fmt(day)} enregistrée sur l'appareil (${n} espèce${n>1?'s':''}). Elle partira à la prochaine synchro.`);
+  if (!$('tab-analyse').hidden) renderAnalyse();
+}
+
+/* ================= Carte des spots et secteurs ================= */
+let big, bigLayer;
+function initCarte(){
+  $('mSp').innerHTML = '<option value="all">Toutes</option>' + SPECIES.map(s => `<option>${esc(s)}</option>`).join('');
+  $('mPick').innerHTML = '<option value="all">Tous</option><option value="Mic">Mic</option><option value="Kat">Kat</option>';
+  ['mYear','mSp','mPick'].forEach(id => $(id).onchange = renderCarte);
+  $('legend').innerHTML = SPECIES.map(s => `<span><span class="dot" style="background:var(${SP_VAR[s]})"></span>${esc(SP_SHORT[s])}</span>`).join('') +
+    '<span><span class="ring"></span>Secteur</span>';
+  if (!HAS_MAP) noMap($('bigMap'));
+}
+function fillYears(){
+  const cur = $('mYear').value || 'all';
+  const years = [...new Set(REC.map(r => r.date.slice(0,4)))].sort().reverse();
+  $('mYear').innerHTML = '<option value="all">Toutes</option>' + years.map(y => `<option>${y}</option>`).join('');
+  $('mYear').value = years.includes(cur) ? cur : 'all';
+}
+function ensureBigMap(){
+  if (!HAS_MAP) { renderCarte(); return; }
+  if (big){ big.invalidateSize(); return; }
+  const mc = mapCenter();
+  big = makeMap($('bigMap'), mc.c, 13);
+  bigLayer = L.layerGroup().addTo(big);
+  big.on('popupopen', e => e.popup.getElement().querySelectorAll('button[data-place]').forEach(b => b.onclick = () => goAnalyse(b.dataset.place)));
+  renderCarte();
+  const pts = S.spots.map(s => [s.lat,s.lng]); if (pts.length) big.fitBounds(pts, {padding:[30,30]});
+}
+function renderCarte(){
+  const y = $('mYear').value || 'all', sp = $('mSp').value || 'all', pk = $('mPick').value || 'all';
+  const active = y !== 'all' || sp !== 'all' || pk !== 'all';
+  const agg = S.spots.map(s => {
+    const rs = REC.filter(r => r.synced && r.spotId === s.id && (y === 'all' || r.date.startsWith(y)) && (pk === 'all' || (r.cueilleur || '').includes(pk)));
+    const found = rs.filter(r => r.type === 'Cueillette' && (sp === 'all' || r.espece === sp));
+    const vide = rs.filter(r => r.type === 'Rien trouvé');
+    const cnt = {}; found.forEach(r => cnt[r.espece] = (cnt[r.espece]||0) + 1);
+    return {s, found, vide, dom:Object.entries(cnt).sort((a,b) => b[1]-a[1])[0]?.[0] || null, show: active ? found.length > 0 : true};
+  });
+  const secs = S.secteurs.map(sec => {
+    const spots = agg.filter(x => x.s.secteurId === sec.id && x.show);
+    const found = spots.flatMap(x => x.found), vide = spots.flatMap(x => x.vide);
+    const cnt = {}; found.forEach(r => cnt[r.espece] = (cnt[r.espece]||0)+1);
+    return {sec, spots, found, vide, sp:Object.keys(cnt), dom:Object.entries(cnt).sort((a,b) => b[1]-a[1])[0]?.[0],
+      years:[...new Set(found.map(r => r.date.slice(0,4)))].sort()};
+  }).filter(x => x.spots.length).sort((a,b) => b.found.length - a.found.length);
+
+  if (bigLayer){
+    bigLayer.clearLayers();
+    secs.forEach(x => {
+      L.circle([x.sec.lat,x.sec.lng], {radius:S.config.rayonSecteur, color:cssv('--ink'), weight:1.5, dashArray:'6 6', fillOpacity:.04})
+        .bindTooltip(esc(x.sec.nom), {permanent:true, direction:'center', className:'sectip'})
+        .bindPopup(`<b>${esc(x.sec.nom)}</b><br><span style="font-size:.75rem">${x.sec.id} · ${x.spots.length} spot${x.spots.length>1?'s':''}</span><br>
+          ${x.found.length} cueillette${x.found.length>1?'s':''} · ${x.vide.length} à vide<br>Années : ${x.years.join(', ') || '—'}<br>
+          <button type="button" data-place="S:${x.sec.id}">Analyser ce secteur</button>`).addTo(bigLayer);
+      x.spots.forEach(a => {
+        const col = a.dom ? spColor(a.dom) : cssv('--empty');
+        L.circle([a.s.lat,a.s.lng], {radius:S.config.rayonSpot, color:col, weight:2, fillColor:col, fillOpacity:.3, interactive:false}).addTo(bigLayer);
+        L.circleMarker([a.s.lat,a.s.lng], {radius:4 + Math.min(5, a.found.length), color:'#fff', weight:1.5, fillColor:col, fillOpacity:1})
+          .bindPopup(`<b>${esc(a.s.nom)}</b> <span style="font-size:.75rem">${a.s.id}${a.s.alt ? ' · '+a.s.alt+' m' : ''}</span><br>
+            Secteur : ${esc(secById(a.s.secteurId)?.nom)}<br>${a.found.length} cueillette${a.found.length>1?'s':''} · ${a.vide.length} à vide<br>
+            ${a.found.map(r => `${fmtY(r.date)} ${esc(SP_SHORT[r.espece] || r.espece)}`).slice(-6).join('<br>')}<br>
+            <button type="button" data-place="P:${a.s.id}">Analyser ce spot</button>`).addTo(bigLayer);
+      });
+    });
+  }
+  const multi = secs.filter(x => x.years.length > 1).length;
+  $('secTitle').textContent = `Secteurs (${secs.length})`;
+  $('secHint').textContent = S.secteurs.length ? `${S.spots.length} spots de ${S.config.rayonSpot} m regroupés en ${S.secteurs.length} secteurs de ${S.config.rayonSecteur} m. ${multi} secteur${multi>1?'s':''} avec des cueillettes sur plusieurs années.` : 'Aucun spot pour l\'instant : ils apparaissent après la première synchro.';
+  $('secList').innerHTML = secs.map(x => `<details class="sec"><summary>
+      <span class="dot" style="width:14px;height:14px;background:${x.dom ? `var(${SP_VAR[x.dom]})` : 'var(--empty)'}"></span>
+      <span style="min-width:0"><span class="nm">${esc(x.sec.nom)}</span> <span style="font-family:var(--f-mono);font-size:.74rem;color:var(--muted)">${x.sec.id}</span>
+        <span class="sps">${x.sp.map(s => `<span class="src">${esc(SP_SHORT[s] || s)}</span>`).join('')}</span></span>
+      <span style="text-align:right;font-size:.82rem;color:var(--muted);line-height:1.3"><b style="color:var(--ink);font-size:1rem">${x.found.length}</b> cueill.<br>${x.spots.length} spot${x.spots.length>1?'s':''}<br>${x.years.join(' ')}</span></summary>
+      <div class="inner">${x.spots.map(a => `<div class="spot" style="display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;cursor:default">
+          <span class="dot" style="background:${a.dom ? `var(${SP_VAR[a.dom]})` : 'var(--empty)'}"></span>
+          <span><b>${esc(a.s.nom)}</b> <span style="font-family:var(--f-mono);font-size:.72rem;color:var(--muted)">${a.s.id}${a.s.alt ? ' · '+a.s.alt+' m' : ''}</span></span>
+          <span style="font-size:.8rem;color:var(--muted)">${a.found.length} · ${a.found.length ? fmtY(a.found[a.found.length-1].date) : '—'}</span></div>`).join('')}
+        <div class="acts">${HAS_MAP ? `<button class="btn sm" type="button" data-go="${x.sec.id}">Voir sur la carte</button>` : ''}<button class="btn sm ghost" type="button" data-an="S:${x.sec.id}">Analyser</button></div></div></details>`).join('')
+    || '<p class="hint">Aucun secteur pour ces filtres.</p>';
+  $('secList').querySelectorAll('[data-go]').forEach(b => b.onclick = () => { const s = secById(b.dataset.go); if (big){ big.setView([s.lat,s.lng], 16); window.scrollTo({top:0, behavior:'smooth'}); } });
+  $('secList').querySelectorAll('[data-an]').forEach(b => b.onclick = () => goAnalyse(b.dataset.an));
+}
+
+/* ================= Analyse ================= */
+let chSeason, chComp, seasonYear = null, anToken = 0;
+function initAnalyse(){
+  $('aSp').innerHTML = '<option value="all">Toutes espèces</option>' + SPECIES.map(s => `<option>${esc(s)}</option>`).join('');
+  $('aPlace').onchange = renderAnalyse; $('aSp').onchange = renderAnalyse;
+}
+function fillPlaceSelect(){
+  const cur = $('aPlace').value;
+  const count = id => REC.filter(r => r.synced && secOfRec(r) === id).length;
+  const secs = [...S.secteurs].sort((a,b) => count(b.id) - count(a.id));
+  $('aPlace').innerHTML = '<option value="all">Tous les secteurs</option>' +
+    (secs.length ? `<optgroup label="Secteurs">${secs.map(s => `<option value="S:${s.id}">${esc(s.nom)} (${count(s.id)} cueill.)</option>`).join('')}</optgroup>` : '') +
+    (S.spots.length ? `<optgroup label="Spots">${S.spots.map(s => `<option value="P:${s.id}">${esc(s.nom)} · ${esc(secById(s.secteurId)?.nom || '')}</option>`).join('')}</optgroup>` : '');
+  const ok = [...$('aPlace').options].some(o => o.value === cur);
+  $('aPlace').value = ok ? cur : (secs[0] ? 'S:'+secs[0].id : 'all');
+}
+function goAnalyse(v){ fillPlaceSelect(); $('aPlace').value = v; showTab('analyse'); }
+function placeInfo(v){
+  if (v === 'all' || !v){ const b = biggestSecteur(); return {name:'tous les secteurs', zone:b ? b.zone || zoneOf(b.lat,b.lng) : null, filter:() => true}; }
+  const [t,id] = v.split(':');
+  if (t === 'S'){ const s = secById(id); return {name:s.nom, zone:s.zone || zoneOf(s.lat,s.lng), filter:r => secOfRec(r) === id}; }
+  const s = spotById(id), sec = secById(s.secteurId);
+  return {name:s.nom, zone:sec ? sec.zone || zoneOf(sec.lat,sec.lng) : zoneOf(s.lat,s.lng), filter:r => r.spotId === id};
+}
+function analyse(place, sp, MET){
+  const {seuil, win} = S.settings;
+  const years = []; for (let y = FIRST_Y(); y <= CUR_Y; y++) years.push(y);
+  return years.map(y => {
+    const recs = REC.filter(r => r.synced && r.date.startsWith(y) && place.filter(r));
+    const found = recs.filter(r => r.type === 'Cueillette' && (sp === 'all' || r.espece === sp));
+    const vide = recs.filter(r => r.type === 'Rien trouvé');
+    const first = found[0]?.date || null, last = found.length ? found[found.length-1].date : null;
+    const eps = detectEpisodes(MET[y], seuil, win);
+    let ep = null, delay = null;
+    if (first){ const c = eps.filter(e => { const d = diffDays(first,e); return d >= 3 && d <= 25; }); ep = c.length ? c[c.length-1] : null; if (ep) delay = diffDays(first, ep); }
+    const w = found.map(estWeight).filter(v => v != null);
+    return {y, found, vide, first, last, eps, ep, delay, kg: w.length ? w.reduce((s,v) => s+v, 0)/1000 : null,
+      nbC:new Set(found.map(r => r.date)).size, nbV:new Set(vide.map(r => r.date)).size};
+  });
+}
+function monthStats(ser, y){
+  const out = {}; if (!ser) return out;
+  [8,9,10,11].forEach(m => {
+    const mm = String(m).padStart(2,'0'); const idx = ser.dates.map((d,i) => d.slice(5,7) === mm ? i : -1).filter(i => i >= 0);
+    out[m] = idx.length ? {sum: +idx.reduce((s,i) => s + ser.rain[i], 0).toFixed(0), partial: TODAY.startsWith(`${y}-${mm}`)} : null;
+    if (m === 10 && idx.length) out.tOct = {v: +(idx.reduce((s,i) => s + (ser.tmin[i]+ser.tmax[i])/2, 0)/idx.length).toFixed(1), partial: out[10].partial};
+  });
+  return out;
+}
+async function renderAnalyse(){
+  const tok = ++anToken;
+  fillPlaceSelect();
+  const place = placeInfo($('aPlace').value), sp = $('aSp').value;
+  if (!place.zone){
+    $('indice').innerHTML = '<div class="big">—</div><div><h3>Pas encore de données</h3><p>L\'analyse apparaît après la première synchro avec le Drive.</p></div>';
+    ['tRec','tMet'].forEach(id => $(id).innerHTML = ''); return;
+  }
+  $('indice').innerHTML = `<div class="big">…</div><div><h3>Chargement de la météo</h3><p>Autour de ${esc(place.name)}.</p></div>`;
+  const {series:MET, src} = await getMeteo(place.zone);
+  if (tok !== anToken) return;
+  const A = analyse(place, sp, MET);
+  const {seuil, win} = S.settings;
+  const spName = sp === 'all' ? 'toutes espèces' : sp.toLowerCase();
+  const past = A.filter(a => a.delay != null && a.y !== CUR_Y);
+  const base = past.length ? past : A.filter(a => a.delay != null);
+  const avg = base.length ? Math.round(base.reduce((s,a) => s + a.delay, 0)/base.length) : null;
+  const srcTag = `<span class="src">${src === 'drive' ? 'Météo du Drive (Open-Meteo)' : src === 'direct' ? 'Météo Open-Meteo directe' : 'Météo indisponible'}</span>`;
+
+  const cur = A.find(a => a.y === CUR_Y);
+  let now = '';
+  if (cur && avg != null){
+    if (cur.first) now = cur.ep ? `Saison ${CUR_Y} : 1ʳᵉ cueillette le ${fmt(cur.first)}, ${cur.delay} j après l'épisode du ${fmt(cur.ep)}.` : `Saison ${CUR_Y} : 1ʳᵉ cueillette le ${fmt(cur.first)}.`;
+    else { const e = cur.eps.filter(d => d >= `${CUR_Y}-08-15`).pop();
+      now = e ? `Saison ${CUR_Y} : dernier épisode pluvieux le ${fmt(e)}, sortie probable vers le ${fmt(addDays(e, avg))}.` : `Saison ${CUR_Y} : pas encore d'épisode pluvieux suffisant depuis mi-août.`; }
+  }
+  $('indice').innerHTML = avg == null
+    ? `<div class="big">—</div><div><h3>Indice déclencheur · ${esc(place.name)}</h3><p>Pas encore assez de données (${esc(spName)}). Il faut une 1ʳᵉ cueillette de saison précédée, 3 à 25 jours avant, d'un épisode ≥ ${seuil} mm en ${win} j.</p>${srcTag}</div>`
+    : `<div class="big">${avg}<small> j</small></div>
+       <div><h3>Délai moyen après pluie · ${esc(place.name)}</h3>
+       <p>Entre un épisode ≥ ${seuil} mm en ${win} j et la 1ʳᵉ cueillette (${esc(spName)}). Sur ${base.length} saison${base.length>1?'s':''} : ${base.map(a => `${a.y} : ${a.delay} j`).join(', ')}.</p>${srcTag}</div>
+       ${now ? `<p class="now">${now}</p>` : ''}`;
+
+  const maxN = Math.max(1, ...A.map(a => a.nbC + a.nbV));
+  $('tRec').innerHTML = `<thead><tr><th>Année</th><th>1ʳᵉ cueillette</th><th>Fenêtre de cueillette</th><th>Cueillettes / à vide</th><th>Poids estimé</th></tr></thead><tbody>` +
+    A.map(a => `<tr><td class="y">${a.y}</td>
+      <td>${a.first ? fmt(a.first) : '—'}<span class="sub">${a.delay != null ? `J+${a.delay} après le ${fmt(a.ep)}` : a.first ? 'pas d\'épisode net avant' : 'aucune cueillette'}</span></td>
+      <td>${a.first ? `${fmt(a.first)} → ${fmt(a.last)}` : '—'}<span class="sub">${a.first ? (diffDays(a.last,a.first)+1)+' j' : ''}</span></td>
+      <td><span class="cv"><b>${a.nbC}</b> / ${a.nbV}
+        <i style="width:${Math.round(a.nbC/maxN*60)}px;background:var(--moss)"></i><i style="width:${Math.round(a.nbV/maxN*60)}px;background:var(--empty)"></i></span></td>
+      <td>${a.kg != null ? a.kg.toFixed(2).replace('.',',')+' kg' : '—'}</td></tr>`).join('') + '</tbody>';
+
+  const MS = A.map(a => ({y:a.y, m:monthStats(MET[a.y], a.y)}));
+  const maxR = Math.max(1, ...MS.flatMap(x => [8,9,10,11].map(m => x.m[m]?.sum || 0)));
+  const cell = v => v ? `<td class="bar" style="--w:${Math.round(v.sum/maxR*100)}%">${v.sum} mm${v.partial ? '<span class="sub">au '+fmt(TODAY)+'</span>' : ''}</td>` : '<td>—</td>';
+  $('tMet').innerHTML = `<thead><tr><th>Année</th><th>Pluie août</th><th>Pluie sept.</th><th>Pluie oct.</th><th>Pluie nov.</th><th>T° moy. oct.</th></tr></thead><tbody>` +
+    MS.map(x => `<tr><td class="y">${x.y}</td>${cell(x.m[8])}${cell(x.m[9])}${cell(x.m[10])}${cell(x.m[11])}
+      <td>${x.m.tOct ? x.m.tOct.v+' °C'+(x.m.tOct.partial ? '<span class="sub">partiel</span>' : '') : '—'}</td></tr>`).join('') + '</tbody>';
+  $('metNote').textContent = src === 'none' ? 'Météo indisponible : pas de réseau et pas encore de copie locale.' : `Données Open-Meteo pour la zone ${place.zone} (maille d'environ 5 km), conservées dans l'onglet « Météo » du Google Sheets.`;
+
+  const withData = A.filter(a => a.found.length).map(a => a.y);
+  if (!A.some(a => a.y === seasonYear)) seasonYear = withData.length ? withData[withData.length-1] : CUR_Y;
+  $('yChips').innerHTML = A.map(a => `<button type="button" aria-pressed="${a.y === seasonYear}">${a.y}</button>`).join('');
+  [...$('yChips').children].forEach((b,i) => b.onclick = () => { seasonYear = A[i].y; renderAnalyse(); });
+  if (HAS_CHART) drawCharts(A, MET);
+}
+function drawCharts(A, MET){
+  const ink = cssv('--ink'), muted = cssv('--muted'), line = cssv('--line'), rain = cssv('--rain'), rainS = cssv('--rain-strong'),
+        moss = cssv('--moss'), chant = cssv('--chant'), empty = cssv('--empty');
+  Chart.defaults.font.family = cssv('--f-body'); Chart.defaults.color = muted;
+  const {seuil, win} = S.settings;
+  const y = seasonYear, ser = MET[y] || {dates:[],rain:[],tmin:[],tmax:[],idx:{}}, a = A.find(x => x.y === y);
+  $('seasonY').textContent = y;
+  const labels = []; for (let d = `${y}-08-01`; d <= `${y}-11-30`; d = addDays(d,1)) labels.push(d);
+  const flags = episodeFlags(ser, seuil, win);
+  const at = d => ser.idx[d];
+  const rainV = labels.map(d => at(d) !== undefined ? ser.rain[at(d)] : null);
+  const rainC = labels.map(d => at(d) !== undefined && flags[at(d)] ? rainS : rain);
+  const tmoy = labels.map(d => at(d) !== undefined && ser.tmin[at(d)] != null ? +((ser.tmin[at(d)] + ser.tmax[at(d)])/2).toFixed(1) : null);
+  const fD = new Set(a.found.map(r => r.date)), vD = new Set(a.vide.map(r => r.date));
+  const mF = labels.map(d => fD.has(d) ? .9 : null), mV = labels.map(d => vD.has(d) && !fD.has(d) ? .9 : null);
+  if (chSeason) chSeason.destroy();
+  chSeason = new Chart($('chSeason'), {
+    data:{labels, datasets:[
+      {type:'bar', label:'Pluie (mm)', data:rainV, backgroundColor:rainC, yAxisID:'y', order:3, barPercentage:1, categoryPercentage:.85},
+      {type:'line', label:'T° moyenne', data:tmoy, borderColor:chant, borderWidth:1.6, pointRadius:0, tension:.35, yAxisID:'y2', order:2},
+      {type:'line', label:'Cueillette', data:mF, showLine:false, pointStyle:'triangle', pointRadius:7, pointHoverRadius:9, backgroundColor:moss, borderColor:moss, yAxisID:'y3', order:1},
+      {type:'line', label:'Passage à vide', data:mV, showLine:false, pointStyle:'crossRot', pointRadius:7, borderWidth:2.5, borderColor:empty, backgroundColor:empty, yAxisID:'y3', order:1}
+    ]},
+    options:{responsive:true, maintainAspectRatio:false, animation:false, interaction:{mode:'index', intersect:false},
+      plugins:{legend:{labels:{color:ink, usePointStyle:true, boxWidth:10, padding:12}},
+        tooltip:{filter:i => i.raw != null, callbacks:{title:i => fmtLong(labels[i[0].dataIndex]),
+          label:c => c.dataset.yAxisID === 'y3' ? c.dataset.label + (c.dataset.label === 'Cueillette' ? ' : ' + a.found.filter(r => r.date === labels[c.dataIndex]).map(r => (SP_SHORT[r.espece] || r.espece) + (r.qte ? ' '+r.qte : '')).join(', ') : '')
+            : `${c.dataset.label} : ${c.raw}${c.dataset.yAxisID === 'y' ? ' mm' : ' °C'}`}}},
+      scales:{
+        x:{grid:{display:false}, ticks:{color:muted, autoSkip:false, maxRotation:0, callback:(v,i) => labels[i].endsWith('-01') ? MONTHS[+labels[i].slice(5,7)-1] : ''}},
+        y:{position:'left', beginAtZero:true, grid:{color:line}, ticks:{color:muted}, title:{display:true, text:'mm', color:muted}},
+        y2:{position:'right', grid:{display:false}, ticks:{color:muted}, title:{display:true, text:'°C', color:muted}},
+        y3:{display:false, min:0, max:1}}}
+  });
+  const years = A.map(x => x.y);
+  const pts = [], vds = [], trg = [];
+  A.forEach(x => {
+    x.found.forEach(r => { const d = diffDays(r.date, `${x.y}-08-01`); if (d >= 0 && d <= 121) pts.push({x:d, y:x.y, r:QTY.indexOf(r.qte) >= 0 ? 3 + QTY.indexOf(r.qte)*1.6 : 5, c:spColor(r.espece), d:r.date, t:`${r.espece}${r.qte ? ' · '+r.qte : ''}${r.remarques && r.remarques.includes('⭐') ? ' · '+r.remarques.split(' · ')[0] : ''}`}); });
+    x.vide.forEach(r => { const d = diffDays(r.date, `${x.y}-08-01`); if (d >= 0 && d <= 121) vds.push({x:d, y:x.y, d:r.date}); });
+    if (x.ep) trg.push({x:diffDays(x.ep, `${x.y}-08-01`), y:x.y - .3, d:x.ep, t:`Épisode pluvieux, ${x.delay} j avant`});
+  });
+  if (chComp) chComp.destroy();
+  chComp = new Chart($('chComp'), {
+    type:'scatter',
+    data:{datasets:[
+      {label:'Épisode déclencheur', data:trg, pointStyle:'triangle', pointRadius:7, backgroundColor:rainS, borderColor:rainS},
+      {label:'Cueillette', data:pts, pointRadius:c => c.raw?.r || 5, backgroundColor:c => c.raw?.c || moss, borderColor:'rgba(0,0,0,.25)', borderWidth:1},
+      {label:'Passage à vide', data:vds, pointStyle:'crossRot', pointRadius:6, borderWidth:2.5, borderColor:empty, backgroundColor:empty}
+    ]},
+    options:{responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{legend:{labels:{color:ink, usePointStyle:true, boxWidth:10, padding:12}},
+        tooltip:{callbacks:{label:c => `${fmtY(c.raw.d)} · ${c.raw.t || c.dataset.label}`}}},
+      scales:{
+        x:{min:0, max:121, grid:{color:line}, ticks:{color:muted, maxRotation:0},
+           afterBuildTicks:ax => { ax.ticks = [0,31,61,92,121].map(v => ({value:v})); },
+           afterTickToLabelConversion:ax => { const Lb = ['1 août','1 sept.','1 oct.','1 nov.','30 nov.']; ax.ticks.forEach((t,i) => t.label = Lb[i]); }},
+        y:{min:years[0]-.7, max:years[years.length-1]+.5, grid:{color:line}, ticks:{color:ink},
+           afterBuildTicks:ax => { ax.ticks = years.map(v => ({value:v})); },
+           afterTickToLabelConversion:ax => { ax.ticks.forEach(t => t.label = String(t.value)); }}}}
+  });
+}
+
+/* ================= Reconnaissance des espèces ================= */
+const UNDER = [
+  {k:'plis', t:'Plis', d:'Girolle, chanterelle en tube. Épais, espacés, fourchus, ils descendent sur le pied.',
+   svg:'<path d="M14 34 Q60 2 106 34" fill="none" stroke="currentColor" stroke-width="3"/><path d="M14 34 Q60 44 106 34" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M22 37 Q40 46 52 60 M34 39 Q46 48 54 64 M46 41 Q52 50 56 68 M98 37 Q80 46 68 60 M86 39 Q74 48 66 64 M74 41 Q68 50 64 68 M34 39 l-6 6 M86 39 l6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M52 42 L50 86 L70 86 L68 42" fill="none" stroke="currentColor" stroke-width="2"/>'},
+  {k:'lisse', t:'Lisse', d:'Trompette de la mort. Ni lames ni plis : surface grise à peine ridée, creuse jusqu\'en bas.',
+   svg:'<path d="M18 12 Q60 30 102 12 L70 84 L50 84 Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><path d="M18 12 Q60 -2 102 12" fill="none" stroke="currentColor" stroke-width="2"/><path d="M40 40 Q46 60 52 80 M80 40 Q74 60 68 80" fill="none" stroke="currentColor" stroke-width="1" opacity=".5"/>'},
+  {k:'aiguillons', t:'Aiguillons', d:'Pied-de-mouton. Petites pointes cassantes qui se détachent au doigt.',
+   svg:'<path d="M14 34 Q60 2 106 34 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><g fill="currentColor">'+[20,28,36,44,76,84,92,100].map((x,i) => `<path d="M${x-2.5} ${36} L${x+2.5} 36 L${x} ${44 + (i%2)*3}Z"/>`).join('')+'</g><path d="M52 36 L50 86 L70 86 L68 36" fill="none" stroke="currentColor" stroke-width="2"/>'},
+  {k:'pores', t:'Tubes et pores', d:'Cèpe. Une éponge de petits trous sous le chapeau, blanche puis jaune puis verdâtre.',
+   svg:'<path d="M12 32 Q60 0 108 32" fill="none" stroke="currentColor" stroke-width="3"/><path d="M12 32 Q60 52 108 32" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor">'+Array.from({length:14},(_,i) => `<circle cx="${20+i*6}" cy="${36+Math.round(Math.sin((i+.5)/14*Math.PI)*6)}" r="1.4"/>`).join('')+'</g><path d="M50 44 Q42 66 48 86 L72 86 Q78 66 70 44" fill="none" stroke="currentColor" stroke-width="2"/>'},
+  {k:'lames', t:'Vraies lames', bad:true, d:'Fines, serrées, en lamelles nettes. Aucune des 5 espèces n\'en a : c\'est le signe d\'un piège.',
+   svg:'<path d="M14 34 Q60 2 106 34" fill="none" stroke="currentColor" stroke-width="3"/><g stroke="currentColor" stroke-width="1.3">'+Array.from({length:21},(_,i) => { const x = 17 + i*4.3; return (x > 50 && x < 70) ? '' : `<line x1="${x}" y1="35" x2="${x + (x<60?2:-2)}" y2="42"/>`; }).join('')+'</g><path d="M14 34 L106 34" stroke="currentColor" stroke-width="1.2"/><path d="M52 36 L50 86 L70 86 L68 36" fill="none" stroke="currentColor" stroke-width="2"/>'}
+];
+const FICHES = [
+  {sp:'Chanterelle en tube', lat:'Craterellus tubaeformis', saison:'Septembre → décembre, jusqu\'aux fortes gelées',
+   habitat:'En troupes nombreuses dans la mousse, sous épicéas, sapins et feuillus, sur sol acide et humide, souvent près du bois pourri.',
+   repere:['Chapeau brun-gris à brun-jaune, 2 à 5 cm, mince, creusé en entonnoir, souvent percé au centre, bord ondulé.',
+           'Dessous : <b>plis</b> espacés et fourchus, gris à gris-jaunâtre, qui descendent sur le pied. Pas de vraies lames.',
+           'Pied <b>jaune à orangé, creux</b> (un tube), souvent aplati et sillonné.',
+           'Chair mince et élastique, odeur faible.'],
+   pieges:[
+     {n:'Cortinaire très joli', l:'Cortinarius rubellus', lvl:'mortel', d:'Même habitat moussu sous conifères : c\'est le piège classique de la chanterelle en tube. Atteinte des reins, symptômes retardés de 2 jours à 3 semaines. Il a de <b>vraies lames</b> fauve-rouille, un <b>pied plein</b> orné de bandes jaunâtres, un chapeau orange-fauve mat et pointu au centre.'},
+     {n:'Galerine marginée', l:'Galerina marginata', lvl:'mortel', d:'Petit champignon brun sur bois pourri ou mousse de souche. <b>Lames</b> brunes et <b>anneau</b> (ou trace d\'anneau) sur le pied. Mêmes toxines que l\'amanite phalloïde.'},
+     {n:'Chanterelle jaunissante', l:'Craterellus lutescens', lvl:'ok', d:'Comestible aussi : pied jaune vif, dessous presque lisse, orangé-rosé. Souvent dans les zones plus humides.'}]},
+  {sp:'Pied-de-mouton', lat:'Hydnum repandum', saison:'Août → novembre, souvent jusqu\'aux gelées',
+   habitat:'Feuillus et conifères, souvent en cercles ou en lignes, dans les mêmes coins que les chanterelles.',
+   repere:['Chapeau crème à chamois-orangé pâle, 4 à 15 cm, bosselé et irrégulier, mat.',
+           'Dessous : <b>aiguillons</b> serrés, crème, cassants, qui se détachent au doigt. Ni lames ni pores.',
+           'Pied court et épais, blanc-crème, souvent décentré.',
+           'Chair blanche, ferme et cassante, qui roussit au froissement. Les vieux exemplaires deviennent amers.'],
+   pieges:[
+     {n:'Pied-de-mouton roux', l:'Hydnum rufescens', lvl:'ok', d:'Comestible aussi : plus petit, chapeau roux-orangé.'},
+     {n:'Hydnes coriaces', l:'Sarcodon, Hydnellum', lvl:'immangeable', d:'Aiguillons aussi, mais chair <b>coriace ou liégeuse</b>, souvent amère, couleurs brunes ou violacées. Si la chair ne casse pas net, ce n\'est pas un pied-de-mouton.'}]},
+  {sp:'Trompette de la mort', lat:'Craterellus cornucopioides', saison:'Août → novembre',
+   habitat:'Feuillus (hêtres, chênes, charmes), sol frais, en colonies parfois énormes, cachées sous les feuilles mortes.',
+   repere:['Forme de <b>trompette</b> ou d\'entonnoir, 3 à 10 cm, <b>creuse jusqu\'à la base</b>.',
+           'Intérieur noir à brun-noir, finement écailleux.',
+           'Extérieur gris cendré, <b>lisse</b> ou à peine ridé : ni lames ni plis marqués.',
+           'Chair mince et souple, gris-noir. Odeur fruitée en séchant.'],
+   pieges:[
+     {n:'Chanterelle cendrée', l:'Craterellus cinereus', lvl:'ok', d:'Comestible aussi : <b>plis nets et fourchus</b> sur l\'extérieur, au lieu d\'une surface lisse.'},
+     {n:'Helvelle lacuneuse', l:'Helvella lacunosa', lvl:'toxique', d:'Gris-noir aussi, mais chapeau en <b>selle tordue</b> et pied creusé de grosses cavités. Toxique crue, à laisser.'},
+     {n:'Mélanges', l:'', lvl:'immangeable', d:'Pas de sosie toxique courant, mais les trompettes se ramassent par poignées : vérifie chaque pièce et retire les petits champignons sombres mêlés aux feuilles.'}]},
+  {sp:'Girolle', lat:'Cantharellus cibarius', saison:'Juin → octobre, après les orages',
+   habitat:'Feuillus (chênes, hêtres) et conifères, sol acide, mousse. Revient souvent au même endroit chaque année.',
+   repere:['Entièrement <b>jaune d\'œuf</b> à jaune orangé.',
+           'Chapeau 3 à 10 cm, bord enroulé puis ondulé.',
+           'Dessous : <b>plis épais</b>, espacés, fourchus, qui descendent loin sur le pied. Pas de lames fines.',
+           'Pied <b>plein</b> et ferme. Chair blanche à jaunâtre, fibreuse, odeur d\'abricot.'],
+   pieges:[
+     {n:'Clitocybe de l\'olivier', l:'Omphalotus olearius', lvl:'toxique', d:'Vomissements violents. Pousse <b>en touffes serrées sur souches</b> ou racines de feuillus (chênes, châtaigniers). <b>Vraies lames</b> fines et serrées, orange vif. Plus grand que la girolle.'},
+     {n:'Cortinaire couleur de rocou', l:'Cortinarius orellanus', lvl:'mortel', d:'Orange-fauve, <b>lames rouille</b>, pied plein et fibreux. Toxique pour les reins, symptômes très retardés.'},
+     {n:'Fausse girolle', l:'Hygrophoropsis aurantiaca', lvl:'immangeable', d:'Orange plus vif, <b>vraies lames</b> fines et serrées, chair molle. Souvent sur débris de conifères. Indigeste.'},
+     {n:'Girolle pâle, chanterelle jaunissante', l:'Cantharellus pallens…', lvl:'ok', d:'Comestibles aussi.'}]},
+  {sp:'Cèpe', lat:'Boletus edulis et proches (aereus, aestivalis, pinophilus)', saison:'Juin → novembre selon les espèces',
+   habitat:'Feuillus et conifères, lisières, sous épicéas, hêtres, chênes et châtaigniers.',
+   repere:['Chapeau brun clair à brun foncé, 5 à 25 cm, lisse, un peu gras par temps humide.',
+           'Dessous : <b>tubes et pores</b> fins, blancs puis jaunâtres, verdâtres en vieillissant. <b>Aucun changement de couleur</b> au toucher.',
+           'Pied épais, souvent ventru, clair, couvert en haut d\'un <b>fin réseau blanc</b>.',
+           'Chair blanche et ferme, qui <b>ne bleuit pas</b> à la coupe. Saveur douce.'],
+   pieges:[
+     {n:'Bolet de Satan', l:'Rubroboletus satanas', lvl:'toxique', d:'<b>Pores rouges</b>, pied rouge, chair qui <b>bleuit</b> à la coupe. Sous feuillus, sur sol calcaire.'},
+     {n:'Bolet amer', l:'Tylopilus felleus', lvl:'immangeable', d:'<b>Pores rosâtres</b> et <b>réseau brun foncé</b> sur le pied. Saveur très amère : un seul gâche tout le plat.'},
+     {n:'Règle simple pour les bolets', l:'', lvl:'toxique', d:'Pores rouges ou orangés, ou chair qui bleuit : on le laisse.'}]}
+];
+const LVL = {mortel:'Mortel', toxique:'Toxique', immangeable:'Immangeable', ok:'Comestible aussi'};
+let PHOTOS = store.get(LS_PHOTOS) || null;
+function renderEspeces(){
+  $('under').innerHTML = UNDER.map(u => `<figure class="${u.bad ? 'bad' : ''}"><svg viewBox="0 0 120 90" aria-hidden="true">${u.svg}</svg>
+    <figcaption><b style="${u.bad ? 'color:var(--danger)' : ''}">${u.t}</b>${u.d}</figcaption></figure>`).join('');
+  const gal = (list, sp, sub) => list && list.length
+    ? `<div class="gal">${list.map((p,i) => `<button type="button" data-ph="${esc(sp)}|${sub}|${i}"><img src="${p.img}" alt="${esc(p.legende)}" loading="lazy"><span>${esc(p.legende)}</span></button>`).join('')}</div>`
+    : `<div class="gal"><div class="empty">Pas encore de photo. Ajoute-les dans le Drive : <b>Carnet des Bois - Photos › ${esc(sp)}${sub === 'pieges' ? ' › Pièges' : ''}</b></div></div>`;
+  $('fiches').innerHTML = FICHES.map(f => {
+    const ph = PHOTOS && PHOTOS.photos ? PHOTOS.photos[f.sp] : null;
+    return `<details class="fiche"><summary>
+      <span class="dot" style="width:16px;height:16px;background:var(${SP_VAR[f.sp]})"></span>
+      <span class="t"><h2>${esc(f.sp)}</h2><i>${esc(f.lat)}</i></span>
+      <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 6 6 6-6 6"/></svg></summary>
+      <div class="body">
+        <div class="meta2"><span><b>Saison</b> · ${esc(f.saison)}</span></div>
+        <p class="hint" style="color:var(--ink)">${esc(f.habitat)}</p>
+        <div><h3>Comment la reconnaître</h3><ul>${f.repere.map(x => `<li>${x}</li>`).join('')}</ul></div>
+        ${gal(ph && ph.reference, f.sp, 'reference')}
+        <div><h3>Pièges à éviter</h3><div style="display:flex;flex-direction:column;gap:8px">${f.pieges.map(p => `<div class="piege ${p.lvl}">
+          <div class="hd"><span class="lvl ${p.lvl}">${LVL[p.lvl]}</span><b>${esc(p.n)}</b>${p.l ? `<i>${esc(p.l)}</i>` : ''}</div><div>${p.d}</div></div>`).join('')}</div></div>
+        ${gal(ph && ph.pieges, f.sp, 'pieges')}
+      </div></details>`;
+  }).join('');
+  $('fiches').querySelectorAll('[data-ph]').forEach(b => b.onclick = () => {
+    const [sp, sub, i] = b.dataset.ph.split('|'); const p = PHOTOS.photos[sp][sub][+i];
+    $('lbImg').src = p.img; $('lbImg').alt = p.legende; $('lbCap').textContent = `${sp} · ${p.legende}`; $('lightbox').showModal();
+  });
+  const n = PHOTOS && PHOTOS.photos ? Object.values(PHOTOS.photos).reduce((s,x) => s + x.reference.length + x.pieges.length, 0) : 0;
+  $('photoHint').innerHTML = PHOTOS
+    ? `${n} photo${n>1?'s':''} gardée${n>1?'s':''} sur cet appareil (consultables sans réseau). Pour en ajouter : dossier Drive « Carnet des Bois - Photos », un sous-dossier par espèce et un sous-dossier « Pièges ». Le nom du fichier sert de légende.`
+    : 'Les photos sont rangées dans le Drive, dossier « Carnet des Bois - Photos » : un sous-dossier par espèce, et dedans un sous-dossier « Pièges ». Le nom du fichier sert de légende (ex. « plis décurrents.jpg »).';
+}
+async function loadPhotos(){
+  const b = $('photoBtn'); b.disabled = true; b.textContent = 'Chargement…';
+  try {
+    const j = await api('photos');
+    PHOTOS = {photos:j.photos, maj:new Date().toISOString()};
+    const ok = store.set(LS_PHOTOS, PHOTOS);
+    renderEspeces();
+    toast(ok ? 'Photos chargées et gardées pour une consultation hors réseau.' : 'Photos chargées, mais trop lourdes pour être gardées hors réseau : mets-en moins par espèce.');
+  } catch(e){ toast(e.message); }
+  finally { b.disabled = false; b.textContent = 'Actualiser les photos du Drive'; }
+}
+
+/* ================= Onglets, toast, réglages ================= */
+function showTab(t){
+  S.ui.tab = t; save();
+  ['saisie','carte','analyse','especes'].forEach(n => $('tab-'+n).hidden = n !== t);
+  document.querySelectorAll('.nav button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
+  if (t === 'saisie' && mini) setTimeout(() => mini.invalidateSize(), 0);
+  if (t === 'carte') setTimeout(ensureBigMap, 0);
+  if (t === 'analyse') renderAnalyse();
+  window.scrollTo(0,0);
+}
+let toastT;
+function toast(m){ const t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 4500); }
+function renderNet(){ $('net').textContent = navigator.onLine ? 'En ligne' : 'Hors réseau'; }
+function renderAll(dataChanged){
+  renderSync(); renderBilan(); renderPesee(); renderSpotBanner(); fillYears();
+  if (dataChanged) drawMiniSpots();
+  if (big || !HAS_MAP) renderCarte();
+  if (!$('tab-analyse').hidden) renderAnalyse();
+}
+function openSettings(){
+  const st = S.settings;
+  $('sUrl').value = st.url; $('sCode').value = st.code; $('sSeuil').value = st.seuil; $('sWin').value = st.win;
+  $('radHint').textContent = `Rayons fixés dans le script : spot ${S.config.rayonSpot} m, secteur ${S.config.rayonSecteur} m.`;
+  $('testMsg').textContent = ''; $('dlg').showModal();
+}
+function initSettings(){
+  const st = S.settings;
+  $('setBtn').onclick = openSettings; $('status').onclick = openSettings;
+  const upd = () => {
+    st.url = $('sUrl').value.trim(); st.code = $('sCode').value.replace(/\D/g,'').slice(0,6);
+    st.seuil = Math.max(5, +$('sSeuil').value || 20); st.win = Math.min(7, Math.max(1, +$('sWin').value || 3));
+    save(); renderSync(); if (!$('tab-analyse').hidden) renderAnalyse();
+  };
+  ['sUrl','sCode','sSeuil','sWin'].forEach(id => $(id).oninput = upd);
+  $('testBtn').onclick = async () => {
+    const m = $('testMsg'); m.textContent = 'Test en cours…';
+    try { await api('ping'); m.textContent = 'Connexion réussie. Chargement des données…'; await refresh(); m.textContent = `Connexion réussie : ${S.cueillettes.length} cueillettes chargées.`; }
+    catch(e){ m.textContent = e.message; }
+  };
+}
+
+/* ================= Démarrage ================= */
+rebuild();
+initSaisie(); initCarte(); initAnalyse(); initSettings(); renderEspeces();
+$('syncBtn').onclick = syncAll;
+$('photoBtn').onclick = loadPhotos;
+if (PHOTOS) $('photoBtn').textContent = 'Actualiser les photos du Drive';
+document.querySelectorAll('.nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+window.addEventListener('online', () => { renderNet(); if (S.pending.length || S.pendingPesees.length) toast('Réseau retrouvé : touche « Envoyer » pour synchroniser.'); });
+window.addEventListener('offline', renderNet);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { drawMiniSpots(); if (big) renderCarte(); if (!$('tab-analyse').hidden) renderAnalyse(); });
+renderNet(); renderAll();
+showTab(S.ui.tab || 'saisie');
+if (S.settings.url && S.settings.code && navigator.onLine && !S.pending.length) refresh(true).catch(() => {});
+</script>
+</body>
+</html>
