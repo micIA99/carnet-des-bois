@@ -169,6 +169,7 @@ td.bar{background-image:linear-gradient(90deg,color-mix(in srgb,var(--rain) 28%,
 /* Toast & réglages */
 .toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.92rem;z-index:2000;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.25)}
 dialog{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink);padding:0;width:min(520px,calc(100% - 32px))}
+dialog{max-height:calc(100% - 32px);overflow:auto}
 dialog::backdrop{background:rgba(10,20,14,.5)}
 dialog form{padding:18px;display:flex;flex-direction:column;gap:14px}
 .dlgfoot{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}
@@ -370,21 +371,16 @@ input[type=range]{width:100%;accent-color:var(--moss)}
     <div class="legend">
       <span><span class="lg me"></span>Moi</span>
       <span><span class="lg pin"></span>Point placé à la main</span>
-      <span><span class="lg small"></span>Laissé trop petit cette saison</span>
+      <span><span class="dot" style="background:var(--sp1)"></span>Cueillette (couleur = espèce)</span>
+      <span><span class="lg small"></span>Trop petit cette saison (date)</span>
       <span><span class="lg zone"></span>Zone</span>
-      <span><span class="lg heat"></span>Chaleur des récoltes</span>
+      <span><span class="lg heat"></span>Chaleur, quand il y a beaucoup de points</span>
     </div>
   </div>
 
   <div class="spotban in" id="fusionBan" hidden></div>
   <p class="formmsg" id="formMsg"></p>
   <button class="btn wide" type="button" id="saveBtn">Enregistrer la cueillette</button>
-
-  <details class="box" id="revoirBox" open>
-    <summary><h2>À revoir cette saison</h2><span class="count" id="revoirCount">0</span></summary>
-    <div><p class="hint" id="revoirHint"></p><div class="revoir" id="revoir"></div></div>
-  </details>
-
 
   <div class="card">
     <h2 id="bilanTitle">Bilan du jour</h2>
@@ -524,6 +520,16 @@ input[type=range]{width:100%;accent-color:var(--moss)}
   </div>
 
   <div class="card">
+    <h2>Fond de carte</h2>
+    <div>
+      <label class="lab" for="rBase">Opacité du fond · <span id="rBaseVal"></span></label>
+      <input type="range" id="rBase" min="20" max="100" step="5">
+      <div class="rangeends"><span>Pâle</span><span>Normal</span></div>
+    </div>
+    <p class="hint">Un fond plus pâle fait ressortir les points, les zones et la chaleur. Le choix du fond (relief, Plan IGN, carte IGN 1:25 000, OpenStreetMap) se fait avec le bouton des couches en haut à droite de chaque carte.</p>
+  </div>
+
+  <div class="card">
     <h2>Carte de chaleur</h2>
     <p class="hint">Elle montre où vous avez ramassé : plus c'est chaud, plus il y en avait (quantité notée, ou étoiles pour les anciens points AlpineQuest).</p>
     <div>
@@ -532,7 +538,12 @@ input[type=range]{width:100%;accent-color:var(--moss)}
       <div class="rangeends"><span>Invisible</span><span>Opaque</span></div>
     </div>
     <div class="heatprev" id="heatPrev"><i></i><span>Aperçu</span></div>
-    <label class="check"><input type="checkbox" id="rHeatSaisie"> Afficher aussi sur la carte de saisie</label>
+    <div>
+      <label class="lab" for="rHeatZ">Points un par un à partir du zoom · <span id="rHeatZVal"></span></label>
+      <input type="range" id="rHeatZ" min="12" max="18" step="1">
+      <div class="rangeends"><span>12 · vue large</span><span>18 · très près</span></div>
+      <p class="hint" id="rHeatZHint"></p>
+    </div>
   </div>
 
   <div class="card">
@@ -572,6 +583,26 @@ input[type=range]{width:100%;accent-color:var(--moss)}
 
 <div class="toast" id="toast" hidden></div>
 
+<dialog id="editDlg">
+  <form method="dialog" id="editForm">
+    <h2 id="edTitle">Modifier la saisie</h2>
+    <p class="hint" id="edMeta"></p>
+    <div id="edLot" style="display:flex;flex-direction:column;gap:12px">
+      <div><span class="lab">Espèce</span><div class="chips" id="edSp"></div></div>
+      <div><span class="lab">Quantité approximative</span><div id="edQty"></div><div class="g-out" id="edQtyOut"></div></div>
+      <div><span class="lab">Taille moyenne</span><div id="edSize"></div><div class="g-out" id="edSizeOut"></div></div>
+      <div><span class="lab">Décision</span><div class="chips" id="edDec"></div></div>
+    </div>
+    <div><span class="lab">Cueilleur</span><div class="chips" id="edPick"></div></div>
+    <div><label class="lab" for="edRem">Remarques</label><textarea id="edRem"></textarea></div>
+    <p class="formmsg" id="edMsg"></p>
+    <div class="dlgfoot">
+      <button type="button" class="btn ghost" id="edDel">Supprimer</button>
+      <span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ghost" id="edCancel">Annuler</button><button type="button" class="btn" id="edSave">Enregistrer</button></span>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="lightbox">
   <form method="dialog" style="padding:12px;gap:8px">
     <img id="lbImg" alt="">
@@ -599,7 +630,7 @@ const QTY = ['5','10','15','20','25','30','50','+'];
 const QTY_VAL = [5,10,15,20,25,30,50,80];
 const SIZES = [{k:'1',l:'1 doigt',cm:'≈2 cm'},{k:'2',l:'2 doigts',cm:'≈4 cm'},{k:'3',l:'3 doigts',cm:'≈5 cm'},{k:'4',l:'4 doigts',cm:'≈7 cm'},{k:'✋',l:'une main',cm:'≈9 cm'},{k:'+',l:'plus d\'une main',cm:'10 cm et plus'}];
 const sizeStr = i => `${SIZES[i].l} (${SIZES[i].cm})`;
-const DECISIONS = ['Ramassé','Laissé – trop petit','Laissé – vieux'];
+const DECISIONS = ['Ramassé','Laissé – trop petit'];
 const PICKERS = ['Mic','Kat','Mic + Kat'];
 const LS_KEY = 'carnet-bois-v3', LS_MET = 'carnet-bois-meteo-direct', LS_PHOTOS = 'carnet-bois-photos';
 const FUSION_M = 20;   /* un lot ramassé à moins de 20 m d'un « trop petit » de la même espèce peut lui être fusionné */
@@ -653,15 +684,20 @@ const fmtArea = m2 => m2 >= 10000 ? (m2/10000).toFixed(2).replace('.',',')+' ha'
 /* ================= État : copie locale du Drive + saisies en attente ================= */
 let S = Object.assign({
   config:{premiereAnnee:2022}, zones:[], cueillettes:[], pesees:[], meteo:{}, maj:null, pending:[], pendingPesees:[],
-  settings:{url:'', code:'', cueilleur:'Mic + Kat', dateMode:'today', dateAutre:TODAY, dateSetOn:TODAY, heatOp:60, heatSaisie:true, seuil:20, win:3},
+  settings:{url:'', code:'', cueilleur:'Mic + Kat', dateMode:'today', dateAutre:TODAY, dateSetOn:TODAY, heatOp:60, heatZoom:15, baseOp:100, seuil:20, win:3},
   ui:{tab:'saisie', base:'Relief (OpenTopoMap)', layers:{heat:true, points:true, zones:true}}
 }, store.get(LS_KEY) || {});
+if (S.settings.heatZoom == null) S.settings.heatZoom = 15;
+if (S.settings.baseOp == null) S.settings.baseOp = 100;
+if (!S.pendingEdits) S.pendingEdits = {};
 let dateReset = false;
 if (S.settings.dateMode === 'autre' && S.settings.dateSetOn !== TODAY){ S.settings.dateMode = 'today'; dateReset = true; }
 const save = () => { if (!store.set(LS_KEY, S)) toast('Mémoire du navigateur pleine : les données ne sont plus sauvegardées sur cet appareil.'); };
 let REC = [], FUS = new Set();
 const rebuild = () => {
-  REC = [...S.cueillettes.map(r => Object.assign({}, r, {synced:true})), ...S.pending.map(r => Object.assign({}, r, {synced:false}))].sort(byDate);
+  const ed = S.pendingEdits || {};
+  REC = [...S.cueillettes.filter(r => !(ed[r.uid] && ed[r.uid].supprimer)).map(r => Object.assign({}, r, ed[r.uid] || {}, {synced:true, edited:!!ed[r.uid]})),
+         ...S.pending.map(r => Object.assign({}, r, {synced:false}))].sort(byDate);
   FUS = new Set(S.pending.flatMap(p => p.fusion || []));
   ZC = null;
 };
@@ -734,6 +770,7 @@ function baseLayers(){
   return {
     'Relief (OpenTopoMap)': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {maxNativeZoom:17, maxZoom:19, attribution:'© OpenTopoMap (CC-BY-SA), © OpenStreetMap'}),
     'Plan IGN': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}', {maxNativeZoom:19, maxZoom:19, attribution:'© IGN'}),
+    'Carte IGN 1:25 000': L.tileLayer('https://data.geopf.fr/private/wmts?apikey=ign_scan_ws&SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}', {minZoom:6, maxNativeZoom:16, maxZoom:19, attribution:'© IGN – SCAN 25'}),
     'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxNativeZoom:19, maxZoom:19, attribution:'© OpenStreetMap'})
   };
 }
@@ -745,8 +782,10 @@ function makeMap(el, center, zoom){
   L.control.scale({imperial:false}).addTo(map);
   map.createPane('pts').style.zIndex = 450;
   map.on('baselayerchange', e => { S.ui.base = e.name; save(); });
+  map._bases = layers; applyBaseOp(map);
   return map;
 }
+function applyBaseOp(map){ if (map && map._bases) Object.values(map._bases).forEach(l => l.setOpacity && l.setOpacity(S.settings.baseOp/100)); }
 function noMap(el){ el.classList.add('nomap'); el.textContent = 'Carte indisponible (pas de réseau à l\'ouverture de la page).'; }
 const startCenter = () => { const z = S.zones[0]; if (z){ const c = centroid(z.pts); return [c.lat,c.lng]; } const r = REC[REC.length-1]; return r ? [r.lat,r.lng] : [45.22,5.97]; };
 function drawZones(group, skipId, onClick){
@@ -846,6 +885,7 @@ function initSaisie(){
   $('backMe').onclick = backToMe;
   $('pDate').value = saisieDate(); $('pDate').onchange = renderPesee;
   $('pesBtn').onclick = savePesee;
+  $('edSave').onclick = saveEdit; $('edDel').onclick = deleteEdit; $('edCancel').onclick = () => $('editDlg').close();
   if (HAS_MAP) initMini(); else noMap($('miniMap'));
   renderPoint();
 }
@@ -858,21 +898,33 @@ function initMini(){
   pinMk = L.marker(startCenter(), {draggable:true, icon:L.divIcon({className:'pin', html:'<span></span>', iconSize:[26,26], iconAnchor:[13,26]}), zIndexOffset:900});
   pinMk.on('dragend', () => { const p = pinMk.getLatLng(); setManual(p.lat, p.lng); });
   mini.on('click', e => setManual(e.latlng.lat, e.latlng.lng));
+  mini.on('moveend', () => { miniHeat = showPoints(mini, miniPts, miniHeat, miniRecs(), true); });
   drawMini();
 }
+function pointPopup(r){
+  const notes = (r.remarques || '').split(' · import')[0].replace(/^import.*/, '');
+  return `<b>${esc(r.espece)}</b> · ${fmtY(r.date)}<br>${esc(r.decision || 'Ramassé')}${r.qte ? ' · '+esc(r.qte === '+' ? '50+' : '≈'+r.qte) : ''}${r.taille ? ' · '+esc(r.taille.split(' (')[0]) : ''}`
+    + `<br>${esc(placeName(r))}${r.cueilleur ? ' · '+esc(r.cueilleur) : ''}${r.source === 'AlpineQuest' ? ' · AlpineQuest' : ''}${isMerged(r) ? '<br>ramassé ensuite (fusionné)' : ''}${notes ? '<br><span style="font-size:.8rem">'+esc(notes)+'</span>' : ''}`;
+}
+/* Zoom suffisant : chaque point est affiché (toutes années, imports compris). Vue trop large : carte de chaleur. Les « trop petits » de la saison restent toujours visibles. */
+function showPoints(map, group, heat, recs, interactive){
+  if (heat){ map.removeLayer(heat); heat = null; }
+  group.clearLayers();
+  const useHeat = map.getZoom() < S.settings.heatZoom;
+  if (useHeat){ heat = makeHeat(recs).addTo(map); applyHeatOp(heat); }
+  recs.forEach(r => {
+    if (aRevoir(r))
+      L.marker([r.lat,r.lng], {icon:smallIcon(), zIndexOffset:500, interactive}).bindTooltip(fmt(r.date), {permanent:true, direction:'top', offset:[0,-16], className:'smalltip'}).bindPopup(pointPopup(r)).addTo(group);
+    else if (!useHeat)
+      L.circleMarker([r.lat,r.lng], {pane:'pts', radius:6, color:'#fff', weight:1.5, fillColor:spColor(r.espece), fillOpacity:1, interactive}).bindPopup(pointPopup(r)).addTo(group);
+  });
+  return heat;
+}
+const miniRecs = () => REC.filter(r => r.type === 'Cueillette');
 function drawMini(){
   if (!mini) return;
   miniZones.clearLayers(); drawZones(miniZones);
-  if (miniHeat){ mini.removeLayer(miniHeat); miniHeat = null; }
-  if (S.settings.heatSaisie){ miniHeat = makeHeat(REC).addTo(mini); applyHeatOp(miniHeat); }
-  miniPts.clearLayers();
-  REC.filter(r => r.date.startsWith(CUR_Y) && r.type === 'Cueillette').forEach(r => {
-    const pop = `<b>${esc(r.espece)}</b><br>${fmtY(r.date)}${r.qte ? ' · '+esc(r.qte === '+' ? '50+' : '≈'+r.qte) : ''}${r.taille ? ' · '+esc(r.taille.split(' (')[0]) : ''}<br>${esc(r.decision)}${r.cueilleur ? ' · '+esc(r.cueilleur) : ''}`;
-    if (aRevoir(r))
-      L.marker([r.lat,r.lng], {icon:smallIcon(), zIndexOffset:500}).bindTooltip(`trop petit · ${fmt(r.date)}`, {permanent:true, direction:'top', offset:[0,-16], className:'smalltip'}).bindPopup(pop).addTo(miniPts);
-    else
-      L.circleMarker([r.lat,r.lng], {pane:'pts', radius:6, color:'#fff', weight:2, fillColor:spColor(r.espece), fillOpacity:1}).bindPopup(pop).addTo(miniPts);
-  });
+  miniHeat = showPoints(mini, miniPts, miniHeat, miniRecs(), true);
 }
 
 /* --- GPS continu (réel ou simulé) --- */
@@ -902,7 +954,7 @@ function gpsStop(){
   clearInterval(gps.timer); gps.watch = null; gps.timer = null; gps.on = false; releaseWake();
   if (meMk){ mini.removeLayer(meMk); mini.removeLayer(meAcc); meMk = meAcc = null; }
   if (F.src === 'gps' && gps.pos) setManual(gps.pos.lat, gps.pos.lng, true);
-  gps.pos = null; renderGpsBtn(); renderPoint(); renderRevoir();
+  gps.pos = null; renderGpsBtn(); renderPoint();
 }
 function onPos(lat,lng,acc){
   gps.pos = {lat,lng,acc};
@@ -915,7 +967,7 @@ function onPos(lat,lng,acc){
     else if (!mini.getBounds().pad(-0.2).contains([lat,lng])) mini.panTo([lat,lng]);
   }
   if (F.src !== 'manuel'){ F.lat = lat; F.lng = lng; F.acc = acc; F.src = 'gps'; }
-  renderPoint(); renderRevoir();
+  renderPoint();
 }
 function setManual(lat,lng,silent){
   F.lat = +lat.toFixed(6); F.lng = +lng.toFixed(6); F.acc = null; F.src = 'manuel';
@@ -942,21 +994,6 @@ function renderPoint(){
   if (z){ ban.className = 'spotban in'; ban.innerHTML = `Dans la zone <b>${esc(z.nom)}</b>`; }
   else { ban.className = 'spotban new'; ban.innerHTML = 'Hors zone : la saisie sera classée « hors zone ». Tu pourras tracer une zone autour dans l\'onglet <b>Zones</b>.'; }
 }
-function renderRevoir(){
-  const list = REC.filter(aRevoir)
-    .map(r => ({r, d: gps.pos ? haversine(gps.pos.lat, gps.pos.lng, r.lat, r.lng) : null}))
-    .sort((a,b) => a.d != null ? a.d - b.d : (a.r.date < b.r.date ? 1 : -1));
-  $('revoirCount').textContent = list.length;
-  $('revoirHint').textContent = list.length ? `Champignons vus en ${CUR_Y} mais laissés car trop petits${gps.pos ? ', du plus proche au plus loin' : ''}. Ils clignotent en orange sur la carte.` : `Aucun champignon laissé « trop petit » en ${CUR_Y} pour l'instant.`;
-  $('revoir').innerHTML = list.map(({r,d},i) => `<div class="rv">
-      <span class="dot" style="width:14px;height:14px;background:var(${SP_VAR[r.espece]})"></span>
-      <div><div><b>${esc(r.espece)}</b>${r.qte ? ' · '+esc(r.qte === '+' ? '50+' : '≈'+r.qte) : ''}${r.taille ? ' · '+esc(r.taille.split(' (')[0]) : ''}</div>
-        <div class="meta">vu le ${fmt(r.date)} (il y a ${diffDays(TODAY, r.date)} j) · ${esc((zById(zoneOfRec(r)) || {nom:'hors zone'}).nom)}${d != null ? ` · <b>à ${fmtDist(d)}</b>` : ''}</div></div>
-      <button class="btn sm ghost" type="button" data-rv="${i}">Voir</button></div>`).join('');
-  $('revoir').querySelectorAll('[data-rv]').forEach(b => b.onclick = () => {
-    const r = list[+b.dataset.rv].r; if (mini){ mini.setView([r.lat,r.lng], 19); $('miniMap').scrollIntoView({behavior:'smooth', block:'center'}); }
-  });
-}
 function saveEntry(){
   const msg = $('formMsg');
   if (F.lat == null){ msg.textContent = 'Active le GPS ou touche la carte pour placer le point.'; return; }
@@ -980,7 +1017,7 @@ let fuseOn = true;
 function fusionCands(){
   if (F.mode !== 'c' || F.decision !== 'Ramassé' || F.lat == null) return [];
   const d = saisieDate();
-  return REC.filter(r => r.decision === 'Laissé – trop petit' && !isMerged(r) && r.espece === F.espece && r.date.slice(0,4) === d.slice(0,4) && r.date <= d
+  return REC.filter(r => r.decision === 'Laissé – trop petit' && !isMerged(r) && r.espece === F.espece && r.date.slice(0,4) === d.slice(0,4) && r.date < d
     && haversine(F.lat, F.lng, r.lat, r.lng) <= FUSION_M);
 }
 function renderFusion(){
@@ -990,6 +1027,50 @@ function renderFusion(){
   el.hidden = false;
   el.innerHTML = `<label class="check"><input type="checkbox" id="fuseChk" ${fuseOn ? 'checked' : ''}><span>Fusionner avec ${c.length > 1 ? 'les '+c.length+' points' : 'le point'} « trop petit » de ${esc(F.espece.toLowerCase())} : ${c.map(r => `vu le ${fmt(r.date)} à ${fmtDist(haversine(F.lat,F.lng,r.lat,r.lng))}`).join(', ')}. ${c.length > 1 ? 'Ils sortiront' : 'Il sortira'} de la liste « À revoir ».</span></label>`;
   $('fuseChk').onchange = e => fuseOn = e.target.checked;
+}
+/* --- Modifier ou supprimer une saisie --- */
+const E = {uid:null, espece:null, qte:-1, taille:-1, decision:null, cueilleur:null, armed:false};
+let gQtyE, gSizeE;
+function openEdit(uid){
+  const r = REC.find(x => x.uid === uid); if (!r) return;
+  Object.assign(E, {uid, espece:r.espece || SPECIES[0], qte:QTY.indexOf(r.qte), taille:SIZES.findIndex((s,i) => sizeStr(i) === r.taille),
+    decision:DECISIONS.includes(r.decision) ? r.decision : DECISIONS[0], cueilleur:r.cueilleur || S.settings.cueilleur, armed:false});
+  const c = r.type === 'Cueillette';
+  $('edLot').hidden = !c;
+  $('edTitle').textContent = c ? 'Modifier la cueillette' : 'Modifier le passage à vide';
+  $('edMeta').textContent = `${fmtLong(r.date)} · ${placeName(r)}${r.synced ? '' : ' · pas encore envoyée'}`;
+  chipsG($('edSp'), SPECIES, () => E.espece, v => E.espece = v, o => `<span class="dot" style="background:var(${SP_VAR[o]})"></span>${esc(o)}`);
+  chipsG($('edDec'), DECISIONS, () => E.decision, v => E.decision = v);
+  chipsG($('edPick'), PICKERS, () => E.cueilleur, v => E.cueilleur = v);
+  if (!gQtyE){
+    gQtyE = grad($('edQty'), QTY, {aria:'Quantité', get:() => E.qte, set:v => E.qte = v, out:$('edQtyOut'),
+      text:v => QTY[v] === '+' ? 'plus de 50' : 'environ '+QTY[v], readout:v => QTY[v] === '+' ? '<b>Plus de 50</b> champignons' : `Environ <b>${QTY[v]}</b> champignons`});
+    gSizeE = grad($('edSize'), SIZES.map(s => s.k), {aria:'Taille', get:() => E.taille, set:v => E.taille = v, out:$('edSizeOut'),
+      text:v => sizeStr(v), readout:v => `<b>${esc(SIZES[v].l)}</b> · ${esc(SIZES[v].cm)}`});
+  } else { gQtyE.paint(); gSizeE.paint(); }
+  $('edRem').value = r.remarques || '';
+  $('edMsg').textContent = ''; $('edDel').textContent = 'Supprimer'; $('edDel').classList.remove('confirm');
+  $('editDlg').showModal();
+}
+function applyEdit(uid, ch){
+  const p = S.pending.find(x => x.uid === uid);
+  if (p){ if (ch.supprimer) S.pending = S.pending.filter(x => x.uid !== uid); else Object.assign(p, ch); }
+  else S.pendingEdits[uid] = ch.supprimer ? {supprimer:true} : Object.assign(S.pendingEdits[uid] || {}, ch);
+  save(); rebuild(); renderAll();
+}
+function saveEdit(){
+  const r = REC.find(x => x.uid === E.uid); if (!r) return;
+  const ch = {remarques:$('edRem').value.trim(), cueilleur:E.cueilleur};
+  if (r.type === 'Cueillette') Object.assign(ch, {espece:E.espece, decision:E.decision,
+    qte:E.qte >= 0 ? QTY[E.qte] : (r.qte || ''), taille:E.taille >= 0 ? sizeStr(E.taille) : (r.taille || '')});
+  applyEdit(E.uid, ch); $('editDlg').close();
+  toast(r.synced ? 'Modification enregistrée. Elle partira à la prochaine synchro.' : 'Saisie modifiée.');
+}
+function deleteEdit(){
+  if (!E.armed){ E.armed = true; $('edDel').textContent = 'Confirmer la suppression'; $('edDel').classList.add('confirm'); return; }
+  const r = REC.find(x => x.uid === E.uid);
+  applyEdit(E.uid, {supprimer:true}); $('editDlg').close();
+  toast(r && r.synced ? 'Saisie supprimée. La suppression partira à la prochaine synchro.' : 'Saisie supprimée.');
 }
 function placeName(r){ const z = zById(zoneOfRec(r)); return z ? z.nom : 'hors zone'; }
 function renderBilan(){
@@ -1008,9 +1089,11 @@ function renderBilan(){
     const what = r.type === 'Cueillette' ? [esc(r.espece), r.qte ? (r.qte === '+' ? '50+' : '≈'+esc(r.qte)) : '', esc((r.taille||'').split(' (')[0])].filter(Boolean).join(' · ') : 'Rien trouvé';
     return `<div class="lot"><span class="dot" style="background:${r.espece ? `var(${SP_VAR[r.espece]})` : 'var(--empty)'}"></span>
       <div><div>${what}</div><div class="meta">${esc(placeName(r))}${r.cueilleur ? ' · '+esc(r.cueilleur) : ''}${r.decision ? ' · '+esc(r.decision) : ''}</div></div>
-      <span class="st ${r.synced ? 'ok' : 'wait'}">${r.synced ? 'Envoyé' : 'En attente'}</span></div>`;
+      <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="st ${r.synced && !r.edited ? 'ok' : 'wait'}">${!r.synced ? 'En attente' : r.edited ? 'Modifié' : 'Envoyé'}</span>
+        <button type="button" class="linkbtn" data-ed="${esc(r.uid)}">Modifier</button></span></div>`;
   }).join('');
   el.innerHTML = h;
+  el.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => openEdit(b.dataset.ed));
 }
 function renderPesee(){
   const day = $('pDate').value || TODAY;
@@ -1034,7 +1117,7 @@ function savePesee(){
 
 /* ================= Zones ================= */
 let big, bigZones, bigPts, bigHeat, drawLayer, draw = null;
-const LAYERS = [['heat','Chaleur'],['points','Points'],['zones','Zones']];
+const LAYERS = [['zones','Contours des zones']];
 function initZones(){
   $('mSp').innerHTML = '<option value="all">Toutes</option>' + SPECIES.map(s => `<option>${esc(s)}</option>`).join('');
   $('mPick').innerHTML = '<option value="all">Tous</option><option value="Mic">Mic</option><option value="Kat">Kat</option>';
@@ -1042,7 +1125,7 @@ function initZones(){
   $('layers').innerHTML = LAYERS.map(([k,l]) => `<button type="button" data-l="${k}" aria-pressed="${S.ui.layers[k]}">${l}</button>`).join('');
   $('layers').querySelectorAll('button').forEach(b => b.onclick = () => { const k = b.dataset.l; S.ui.layers[k] = !S.ui.layers[k]; b.setAttribute('aria-pressed', S.ui.layers[k]); save(); renderZones(); });
   $('legend').innerHTML = SPECIES.map(s => `<span><span class="dot" style="background:var(${SP_VAR[s]})"></span>${esc(SP_SHORT[s])}</span>`).join('') +
-    '<span><span class="lg small"></span>Trop petit</span><span><span class="lg zone"></span>Zone</span><span><span class="lg heat"></span>Chaleur</span>';
+    '<span><span class="lg small"></span>Trop petit (date)</span><span><span class="lg zone"></span>Zone</span><span><span class="lg heat"></span>Chaleur, quand il y a beaucoup de points</span>';
   $('zNew').onclick = () => startDraw(null);
   $('zUndo').onclick = () => { if (draw && draw.pts.length){ draw.pts.pop(); renderDraw(); } };
   $('zCancel').onclick = endDraw;
@@ -1060,6 +1143,7 @@ function ensureBig(){
   if (big){ big.invalidateSize(); return; }
   big = makeMap($('bigMap'), startCenter(), 14);
   bigZones = L.layerGroup().addTo(big); bigPts = L.layerGroup().addTo(big); drawLayer = L.layerGroup().addTo(big);
+  big.on('moveend', () => { bigHeat = showPoints(big, bigPts, bigHeat, filtered(), !draw); });
   big.on('click', e => { if (draw){ draw.pts.push([+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6)]); renderDraw(); } });
   big.on('popupopen', e => e.popup.getElement().querySelectorAll('[data-pz]').forEach(b => b.onclick = () => { big.closePopup(); zoneAction(b.dataset.pz, b.dataset.id); }));
   renderZones();
@@ -1080,22 +1164,14 @@ let confirmDel = null;
 function renderZones(){
   const recs = filtered();
   if (big){
-    bigZones.clearLayers(); bigPts.clearLayers();
-    if (bigHeat){ big.removeLayer(bigHeat); bigHeat = null; }
+    bigZones.clearLayers();
     if (S.ui.layers.zones) drawZones(bigZones, draw ? draw.id : null, (z,p) => {
       if (draw) return;
       const st = zoneStats(recs, r => zoneOfRec(r) === z.id);
       L.popup().setLatLng(p.getCenter()).setContent(`<b>${esc(z.nom)}</b><br>${fmtArea(areaM2(z.pts))} · ${st.found.length} cueillette${st.found.length>1?'s':''}<br>Années : ${st.years.join(', ') || '—'}<br>
         <button type="button" data-pz="edit" data-id="${z.id}">Modifier</button> <button type="button" data-pz="an" data-id="${z.id}">Analyser</button>`).openOn(big);
     });
-    if (S.ui.layers.heat){ bigHeat = makeHeat(recs).addTo(big); applyHeatOp(bigHeat); }
-    if (S.ui.layers.points) recs.forEach(r => {
-      const pop = `<b>${esc(r.espece)}</b> · ${fmtY(r.date)}<br>${esc(r.decision || 'Ramassé')}${r.qte ? ' · '+esc(r.qte === '+' ? '50+' : '≈'+r.qte) : ''}<br>${esc(placeName(r))}${r.remarques ? '<br><span style="font-size:.8rem">'+esc(r.remarques.split(' · import')[0].replace(/^import.*/,''))+'</span>' : ''}`;
-      if (aRevoir(r))
-        L.marker([r.lat,r.lng], {icon:smallIcon(), zIndexOffset:500, interactive:!draw}).bindPopup(pop).addTo(bigPts);
-      else
-        L.circleMarker([r.lat,r.lng], {pane:'pts', radius:5, color:'#fff', weight:1.5, fillColor:spColor(r.espece), fillOpacity:1, interactive:!draw}).bindPopup(pop).addTo(bigPts);
-    });
+    bigHeat = showPoints(big, bigPts, bigHeat, recs, !draw);
   }
   const rows = S.zones.map(z => ({z, st:zoneStats(recs, r => zoneOfRec(r) === z.id)})).sort((a,b) => b.st.found.length - a.st.found.length);
   const hors = zoneStats(recs, r => !zoneOfRec(r));
@@ -1462,6 +1538,10 @@ async function loadPhotos(){
 
 
 /* ================= Réglages ================= */
+function zoomHint(){
+  const z = mini && mini.getZoom ? mini.getZoom() : null;
+  $('rHeatZHint').textContent = `En dessous de ce zoom, les points se fondent en carte de chaleur ; au-dessus, chaque cueillette (imports compris) est un point.${typeof z === 'number' ? ` Zoom actuel de la carte de saisie : ${z}.` : ''}`;
+}
 function initReglages(){
   const st = S.settings;
   chipsG($('rPick'), PICKERS, () => st.cueilleur, v => { st.cueilleur = v; save(); renderCtx(); });
@@ -1475,7 +1555,12 @@ function initReglages(){
   $('rHeat').value = st.heatOp;
   const updHeat = () => { st.heatOp = +$('rHeat').value; $('rHeatVal').textContent = `${st.heatOp} % d'opacité`; $('heatPrev').style.setProperty('--op', st.heatOp/100); applyHeatOp(miniHeat); applyHeatOp(bigHeat); save(); };
   $('rHeat').oninput = updHeat; updHeat();
-  $('rHeatSaisie').checked = st.heatSaisie; $('rHeatSaisie').onchange = e => { st.heatSaisie = e.target.checked; save(); drawMini(); };
+  $('rHeatZ').value = st.heatZoom;
+  const updZ = () => { st.heatZoom = +$('rHeatZ').value; $('rHeatZVal').textContent = st.heatZoom; zoomHint(); save(); };
+  $('rHeatZ').oninput = updZ; $('rHeatZ').onchange = () => { drawMini(); if (big) renderZones(); }; updZ();
+  $('rBase').value = st.baseOp;
+  const updB = () => { st.baseOp = +$('rBase').value; $('rBaseVal').textContent = `${st.baseOp} %`; applyBaseOp(mini); applyBaseOp(big); save(); };
+  $('rBase').oninput = updB; updB();
   $('sSeuil').value = st.seuil; $('sWin').value = st.win;
   $('sSeuil').oninput = $('sWin').oninput = () => { st.seuil = Math.max(5, +$('sSeuil').value || 20); st.win = Math.min(7, Math.max(1, +$('sWin').value || 3)); save(); };
   $('sUrl').value = st.url || ''; $('sCode').value = st.code || '';
@@ -1519,6 +1604,8 @@ async function syncAll(){
       S.pending = S.pending.filter(p => !sent.has(p.uid)); save();
       msg = `${res.ajoutes} saisie${res.ajoutes > 1 ? 's' : ''} envoyée${res.ajoutes > 1 ? 's' : ''}` + (res.fusions ? `, ${res.fusions} fusion${res.fusions > 1 ? 's' : ''}` : '') + '. ';
     }
+    const eds = Object.entries(S.pendingEdits).map(([uid, ch]) => Object.assign({uid}, ch));
+    if (eds.length){ await api('modifier', {items:eds}); S.pendingEdits = {}; save(); msg += `${eds.length} modification${eds.length > 1 ? 's' : ''} envoyée${eds.length > 1 ? 's' : ''}. `; }
     if (S.pendingPesees.length){ await api('pesee', {items:S.pendingPesees}); S.pendingPesees = []; save(); msg += 'Pesées envoyées. '; }
     $('syncLbl').textContent = 'Actualisation…';
     await refresh(!!msg);
@@ -1527,7 +1614,7 @@ async function syncAll(){
   finally { busy = false; renderSync(); }
 }
 function renderSync(){
-  const n = S.pending.length + S.pendingPesees.length;
+  const n = S.pending.length + S.pendingPesees.length + Object.keys(S.pendingEdits).length;
   $('syncCount').textContent = n; $('syncCount').hidden = !n;
   $('syncBtn').disabled = busy; $('syncLbl').textContent = n ? 'Envoyer' : 'Actualiser';
   const st = $('status');
@@ -1544,13 +1631,14 @@ function showTab(t){
   if (t === 'saisie' && mini) setTimeout(() => mini.invalidateSize(), 0);
   if (t === 'zones') setTimeout(ensureBig, 0);
   if (t === 'analyse') renderAnalyse();
+  if (t === 'reglages') zoomHint();
   window.scrollTo(0,0);
 }
 let toastT;
 function toast(m){ const t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 4500); }
 function renderNet(){ $('net').textContent = navigator.onLine ? 'En ligne' : 'Hors réseau'; }
 function renderAll(){
-  renderSync(); renderCtx(); renderBilan(); renderPesee(); renderPoint(); renderRevoir(); fillYears(); fillPlaceSelect(); drawMini();
+  renderSync(); renderCtx(); renderBilan(); renderPesee(); renderPoint(); fillYears(); fillPlaceSelect(); drawMini();
   if (big || !HAS_MAP) renderZones();
   if (!$('tab-analyse').hidden) renderAnalyse();
 }
@@ -1562,7 +1650,7 @@ $('photoBtn').onclick = loadPhotos; if (PHOTOS) $('photoBtn').textContent = 'Act
 $('status').onclick = () => showTab('reglages');
 $('syncBtn').onclick = syncAll;
 document.querySelectorAll('.nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
-window.addEventListener('online', () => { renderNet(); if (S.pending.length || S.pendingPesees.length) toast('Réseau retrouvé : touche « Envoyer » pour synchroniser.'); }); window.addEventListener('offline', renderNet);
+window.addEventListener('online', () => { renderNet(); if (S.pending.length || S.pendingPesees.length || Object.keys(S.pendingEdits).length) toast('Réseau retrouvé : touche « Envoyer » pour synchroniser.'); }); window.addEventListener('offline', renderNet);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { drawMini(); if (big) renderZones(); if (!$('tab-analyse').hidden) renderAnalyse(); });
 renderNet(); renderAll();
 showTab(TABS.includes(S.ui.tab) ? S.ui.tab : 'saisie');
