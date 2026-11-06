@@ -256,7 +256,7 @@ dialog form{padding:18px;display:flex;flex-direction:column;gap:14px}
 .g-dot{width:18px;height:18px;border-radius:50%;background:var(--surface);border:2px solid var(--line);margin-top:3px;transition:transform .12s}
 .g-stop.on .g-dot{background:var(--moss);border-color:var(--moss)}
 .g-stop.cur .g-dot{transform:scale(1.45);box-shadow:0 0 0 4px var(--moss-soft)}
-.g-lab{font-family:var(--f-mono);font-size:.86rem;font-weight:600;color:var(--muted)}
+.g-lab{font-family:var(--f-body);font-size:.8rem;font-weight:700;color:var(--muted);text-align:center;line-height:1.15;padding:0 2px}
 .g-stop.cur .g-lab{color:var(--ink)}
 .g-out{font-size:.92rem;min-height:1.4em;margin-top:4px}
 .g-out b{font-family:var(--f-display)}
@@ -349,7 +349,7 @@ input[type=range]{width:100%;accent-color:var(--moss)}
     <h2>Le lot</h2>
     <div><span class="lab">Espèce</span><div class="chips big" id="cSp"></div></div>
     <div><span class="lab">Quantité approximative</span><div id="gQty"></div><div class="g-out" id="gQtyOut"></div></div>
-    <div><span class="lab">Taille moyenne (largeur du chapeau, en doigts)</span><div id="gSize"></div><div class="g-out" id="gSizeOut"></div></div>
+    <div><span class="lab">Taille moyenne (largeur du chapeau)</span><div id="gSize"></div><div class="g-out" id="gSizeOut"></div></div>
     <div><span class="lab">Décision</span><div class="chips" id="cDec"></div></div>
   </div>
   <p class="hint" id="videHint" hidden>Sortie sans trouvaille à cet endroit. Ces passages à vide servent à dater le début et la fin de saison dans l'analyse.</p>
@@ -357,6 +357,7 @@ input[type=range]{width:100%;accent-color:var(--moss)}
   <div class="card">
     <label class="lab" for="fRem">Remarques</label>
     <textarea id="fRem" placeholder="Mousse humide, sous les hêtres, beaucoup de limaces…"></textarea>
+    <label class="check"><input type="checkbox" id="fTraces"> Traces d'autres cueilleurs (pieds coupés, mousse retournée…)</label>
   </div>
 
   <div class="card">
@@ -402,6 +403,8 @@ input[type=range]{width:100%;accent-color:var(--moss)}
     <h2 id="drawTitle">Nouvelle zone</h2>
     <p class="hint" id="drawHint">Touche la carte pour poser les sommets du contour, dans l'ordre. Glisse un sommet pour le déplacer, touche-le pour le retirer, touche un « + » pour en ajouter un entre deux.</p>
     <div><label class="lab" for="zName">Nom de la zone</label><input type="text" id="zName" maxlength="40"></div>
+    <div><span class="lab">Pression des autres cueilleurs</span><div class="chips" id="zPress"></div>
+      <p class="hint">Fréquentation habituelle du coin par d'autres cueilleurs. Elle aide à lire l'analyse : un passage à vide dans une zone très fréquentée peut venir de quelqu'un passé avant toi.</p></div>
     <p class="drawinfo" id="drawInfo"></p>
     <div class="acts">
       <button class="btn sm ghost" type="button" id="zUndo">↶ Dernier sommet</button>
@@ -442,6 +445,7 @@ input[type=range]{width:100%;accent-color:var(--moss)}
 
   <div class="card">
     <h2>Récoltes par année</h2>
+    <p class="hint" id="recNote"></p>
     <div class="tw"><table id="tRec"></table></div>
   </div>
 
@@ -462,6 +466,11 @@ input[type=range]{width:100%;accent-color:var(--moss)}
     <h2>Profil météo d'automne</h2>
     <div class="tw"><table id="tMet"></table></div>
     <p class="hint" id="metNote"></p>
+  </div>
+
+  <div class="card">
+    <h2 id="lastTitle">20 dernières saisies</h2>
+    <div class="bilan" id="lastList"></div>
   </div>
 </section>
 
@@ -539,7 +548,7 @@ input[type=range]{width:100%;accent-color:var(--moss)}
     </div>
     <div class="heatprev" id="heatPrev"><i></i><span>Aperçu</span></div>
     <div>
-      <label class="lab" for="rHeatZ">Points un par un à partir du zoom · <span id="rHeatZVal"></span></label>
+      <label class="lab" for="rHeatZ">Tous les points affichés à partir du zoom · <span id="rHeatZVal"></span></label>
       <input type="range" id="rHeatZ" min="12" max="18" step="1">
       <div class="rangeends"><span>12 · vue large</span><span>18 · très près</span></div>
       <p class="hint" id="rHeatZHint"></p>
@@ -595,6 +604,7 @@ input[type=range]{width:100%;accent-color:var(--moss)}
     </div>
     <div><span class="lab">Cueilleur</span><div class="chips" id="edPick"></div></div>
     <div><label class="lab" for="edRem">Remarques</label><textarea id="edRem"></textarea></div>
+    <label class="check"><input type="checkbox" id="edTraces"> Traces d'autres cueilleurs</label>
     <p class="formmsg" id="edMsg"></p>
     <div class="dlgfoot">
       <button type="button" class="btn ghost" id="edDel">Supprimer</button>
@@ -626,10 +636,28 @@ const SPECIES = ['Chanterelle','Pied-de-mouton','Trompette de mort','Girolle','C
 const RENAME = {'Chanterelle en tube':'Chanterelle','Trompette de la mort':'Trompette de mort'};
 const SP_VAR = {'Chanterelle':'--sp1','Pied-de-mouton':'--sp2','Trompette de mort':'--sp3','Girolle':'--sp4','Cèpe':'--sp5'};
 const SP_SHORT = {'Chanterelle':'Chanterelle','Pied-de-mouton':'Pied-de-mouton','Trompette de mort':'Trompette','Girolle':'Girolle','Cèpe':'Cèpe'};
-const QTY = ['5','10','15','20','25','30','50','+'];
-const QTY_VAL = [5,10,15,20,25,30,50,80];
-const SIZES = [{k:'1',l:'1 doigt',cm:'≈2 cm'},{k:'2',l:'2 doigts',cm:'≈4 cm'},{k:'3',l:'3 doigts',cm:'≈5 cm'},{k:'4',l:'4 doigts',cm:'≈7 cm'},{k:'✋',l:'une main',cm:'≈9 cm'},{k:'+',l:'plus d\'une main',cm:'10 cm et plus'}];
-const sizeStr = i => `${SIZES[i].l} (${SIZES[i].cm})`;
+const QTY = ['Très peu','Peu','Pas mal','Beaucoup'];
+const QTY_VAL = [3,10,25,60];
+const QTY_TXT = ['1 à 5 champignons','5 à 15 champignons','15 à 40 champignons','plus de 40 champignons'];
+const SIZES = [{k:'Très petit',l:'Très petit',cm:'moins de 2 cm'},{k:'Petit',l:'Petit',cm:'2 à 4 cm'},{k:'Moyen',l:'Moyen',cm:'4 à 7 cm'},{k:'Grand',l:'Grand',cm:'plus de 7 cm'}];
+const sizeStr = i => SIZES[i].l;
+const PRESSIONS = ['Inconnue','Faible','Moyenne','Forte'];
+/* Anciennes valeurs (graduations chiffrées, doigts) converties à la lecture */
+function normQte(v){
+  v = String(v || ''); if (!v || QTY.includes(v)) return v;
+  return {'5':'Très peu','10':'Peu','15':'Peu','20':'Pas mal','25':'Pas mal','30':'Pas mal','50':'Beaucoup','+':'Beaucoup',
+          '1–5':'Très peu','5–20':'Peu','20–50':'Pas mal','50–100':'Beaucoup','100+':'Beaucoup'}[v] || v;
+}
+function normTaille(v){
+  v = String(v || ''); if (!v || SIZES.some(s => s.l === v)) return v;
+  if (/1 doigt/.test(v)) return 'Très petit';
+  if (/2 doigts/.test(v)) return 'Petit';
+  if (/3 doigts/.test(v)) return 'Moyen';
+  if (/4 doigts|main/.test(v)) return 'Grand';
+  return v;
+}
+const qtyOpts = (get, set, out) => ({aria:'Quantité approximative', get, set, out, text:v => `${QTY[v]}, ${QTY_TXT[v]}`, readout:v => `<b>${QTY[v]}</b> · ${QTY_TXT[v]}`});
+const sizeOpts = (get, set, out) => ({aria:'Taille moyenne', get, set, out, text:v => `${SIZES[v].l}, ${SIZES[v].cm}`, readout:v => `<b>${SIZES[v].l}</b> · chapeau de ${SIZES[v].cm}`});
 const DECISIONS = ['Ramassé','Laissé – trop petit'];
 const PICKERS = ['Mic','Kat','Mic + Kat'];
 const LS_KEY = 'carnet-bois-v3', LS_MET = 'carnet-bois-meteo-direct', LS_PHOTOS = 'carnet-bois-photos';
@@ -698,6 +726,7 @@ const rebuild = () => {
   const ed = S.pendingEdits || {};
   REC = [...S.cueillettes.filter(r => !(ed[r.uid] && ed[r.uid].supprimer)).map(r => Object.assign({}, r, ed[r.uid] || {}, {synced:true, edited:!!ed[r.uid]})),
          ...S.pending.map(r => Object.assign({}, r, {synced:false}))].sort(byDate);
+  REC.forEach(r => { r.qte = normQte(r.qte); r.taille = normTaille(r.taille); });
   FUS = new Set(S.pending.flatMap(p => p.fusion || []));
   ZC = null;
 };
@@ -797,12 +826,12 @@ function drawZones(group, skipId, onClick){
 }
 /* Carte de chaleur : ramassés, pondérés par la quantité (ou les étoiles AlpineQuest) */
 function heatWeight(r){
-  if (r.qte) return Math.min(1, qtyVal(r)/50);
+  if (r.qte) return Math.min(1, qtyVal(r)/40);
   const st = (r.remarques.match(/⭐/g) || []).length;
   return Math.min(1, .45 + .18*st);
 }
 function makeHeat(recs){
-  const pts = recs.filter(isPicked).map(r => [r.lat, r.lng, heatWeight(r)]);
+  const pts = recs.filter(r => r.type === 'Cueillette').map(r => [r.lat, r.lng, heatWeight(r)]);
   if (HAS_HEAT) return L.heatLayer(pts, {radius:30, blur:24, maxZoom:17, max:1, minOpacity:.3, gradient:{.15:'#3b8ea5', .45:'#9bc53d', .7:'#f2c14e', 1:'#d1495b'}});
   const g = L.layerGroup();
   pts.forEach(p => L.circle([p[0],p[1]], {radius:22, stroke:false, fillColor:'#d1495b', fillOpacity:.25*p[2], interactive:false}).addTo(g));
@@ -874,11 +903,8 @@ function renderCtx(){
 function initSaisie(){
   chipsG($('cSp'), SPECIES, () => F.espece, v => { F.espece = v; renderFusion(); }, o => `<span class="dot" style="background:var(${SP_VAR[o]})"></span>${esc(o)}`);
   chipsG($('cDec'), DECISIONS, () => F.decision, v => { F.decision = v; renderFusion(); });
-  gQty = grad($('gQty'), QTY, {aria:'Quantité approximative', get:() => F.qte, set:v => F.qte = v, out:$('gQtyOut'),
-    text:v => QTY[v] === '+' ? 'plus de 50' : 'environ '+QTY[v],
-    readout:v => QTY[v] === '+' ? '<b>Plus de 50</b> champignons' : `Environ <b>${QTY[v]}</b> champignons`});
-  gSize = grad($('gSize'), SIZES.map(s => s.k), {aria:'Taille moyenne', get:() => F.taille, set:v => F.taille = v, out:$('gSizeOut'),
-    text:v => sizeStr(v), readout:v => `<b>${esc(SIZES[v].l)}</b> · ${esc(SIZES[v].cm)}`});
+  gQty = grad($('gQty'), QTY, qtyOpts(() => F.qte, v => F.qte = v, $('gQtyOut')));
+  gSize = grad($('gSize'), SIZES.map(s => s.k), sizeOpts(() => F.taille, v => F.taille = v, $('gSizeOut')));
   $('modeC').onclick = () => setMode('c'); $('modeV').onclick = () => setMode('v');
   $('saveBtn').onclick = saveEntry;
   $('gpsBtn').onclick = () => gps.on ? gpsStop() : gpsStart();
@@ -903,21 +929,34 @@ function initMini(){
 }
 function pointPopup(r){
   const notes = (r.remarques || '').split(' · import')[0].replace(/^import.*/, '');
-  return `<b>${esc(r.espece)}</b> · ${fmtY(r.date)}<br>${esc(r.decision || 'Ramassé')}${r.qte ? ' · '+esc(r.qte === '+' ? '50+' : '≈'+r.qte) : ''}${r.taille ? ' · '+esc(r.taille.split(' (')[0]) : ''}`
-    + `<br>${esc(placeName(r))}${r.cueilleur ? ' · '+esc(r.cueilleur) : ''}${r.source === 'AlpineQuest' ? ' · AlpineQuest' : ''}${isMerged(r) ? '<br>ramassé ensuite (fusionné)' : ''}${notes ? '<br><span style="font-size:.8rem">'+esc(notes)+'</span>' : ''}`;
+  return `<b>${esc(r.espece)}</b> · ${fmtY(r.date)}<br>${esc(r.decision || 'Ramassé')}${r.qte ? ' · '+esc(r.qte) : ''}${r.taille ? ' · '+esc(r.taille.split(' (')[0]) : ''}`
+    + `<br>${esc(placeName(r))}${r.cueilleur ? ' · '+esc(r.cueilleur) : ''}${r.source === 'AlpineQuest' ? ' · AlpineQuest' : ''}${r.traces ? '<br>traces d\'autres cueilleurs' : ''}${isMerged(r) ? '<br>ramassé ensuite (fusionné)' : ''}${notes ? '<br><span style="font-size:.8rem">'+esc(notes)+'</span>' : ''}`;
 }
-/* Zoom suffisant : chaque point est affiché (toutes années, imports compris). Vue trop large : carte de chaleur. Les « trop petits » de la saison restent toujours visibles. */
+/* Points qui se chevauchent à l'écran (moins de 16 px d'écart) */
+function overlapping(map, recs){
+  const R = 16, cells = new Map(), dense = new Set();
+  const pts = recs.map(r => { const p = map.latLngToContainerPoint([r.lat, r.lng]); return {x:+p.x, y:+p.y}; });
+  const key = (x,y) => Math.floor(x/R)+':'+Math.floor(y/R);
+  pts.forEach((p,i) => { const k = key(p.x,p.y); if (!cells.has(k)) cells.set(k, []); cells.get(k).push(i); });
+  pts.forEach((p,i) => {
+    const cx = Math.floor(p.x/R), cy = Math.floor(p.y/R);
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++)
+      (cells.get((cx+dx)+':'+(cy+dy)) || []).forEach(j => { if (j > i && Math.hypot(p.x-pts[j].x, p.y-pts[j].y) < R){ dense.add(i); dense.add(j); } });
+  });
+  return dense;
+}
+/* Zoom suffisant : tous les points. Vue plus large : seuls les points qui se chevauchent passent en carte de chaleur,
+   les points isolés restent visibles. Les « trop petits » de la saison restent toujours visibles. */
 function showPoints(map, group, heat, recs, interactive){
   if (heat){ map.removeLayer(heat); heat = null; }
   group.clearLayers();
-  const useHeat = map.getZoom() < S.settings.heatZoom;
-  if (useHeat){ heat = makeHeat(recs).addTo(map); applyHeatOp(heat); }
-  recs.forEach(r => {
-    if (aRevoir(r))
-      L.marker([r.lat,r.lng], {icon:smallIcon(), zIndexOffset:500, interactive}).bindTooltip(fmt(r.date), {permanent:true, direction:'top', offset:[0,-16], className:'smalltip'}).bindPopup(pointPopup(r)).addTo(group);
-    else if (!useHeat)
-      L.circleMarker([r.lat,r.lng], {pane:'pts', radius:6, color:'#fff', weight:1.5, fillColor:spColor(r.espece), fillOpacity:1, interactive}).bindPopup(pointPopup(r)).addTo(group);
-  });
+  const always = recs.filter(aRevoir), rest = recs.filter(r => !aRevoir(r));
+  const dense = map.getZoom() < S.settings.heatZoom ? overlapping(map, rest) : new Set();
+  const hot = rest.filter((r,i) => dense.has(i));
+  if (hot.length){ heat = makeHeat(hot).addTo(map); applyHeatOp(heat); }
+  rest.forEach((r,i) => { if (!dense.has(i))
+    L.circleMarker([r.lat,r.lng], {pane:'pts', radius:6, color:'#fff', weight:1.5, fillColor:spColor(r.espece), fillOpacity:1, interactive}).bindPopup(pointPopup(r)).addTo(group); });
+  always.forEach(r => L.marker([r.lat,r.lng], {icon:smallIcon(), zIndexOffset:500, interactive}).bindTooltip(fmt(r.date), {permanent:true, direction:'top', offset:[0,-16], className:'smalltip'}).bindPopup(pointPopup(r)).addTo(group));
   return heat;
 }
 const miniRecs = () => REC.filter(r => r.type === 'Cueillette');
@@ -1004,12 +1043,12 @@ function saveEntry(){
   const fus = c && fuseOn ? fusionCands().map(r => r.uid) : [];
   S.pending.push({uid:'W'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), date:saisieDate(), type:c ? 'Cueillette' : 'Rien trouvé',
     espece:c ? F.espece : '', qte:c ? QTY[F.qte] : '', taille:c ? sizeStr(F.taille) : '', decision:c ? F.decision : '',
-    remarques:$('fRem').value.trim(), lat:F.lat, lng:F.lng, acc:F.acc, alt:null, cueilleur:S.settings.cueilleur, source:'Appli', fusion:fus});
+    remarques:$('fRem').value.trim(), lat:F.lat, lng:F.lng, acc:F.acc, alt:null, cueilleur:S.settings.cueilleur, source:'Appli', fusion:fus, traces:$('fTraces').checked});
   fuseOn = true;
   save(); rebuild();
   const z = zoneAt(F.lat, F.lng);
   toast(c ? `${F.espece} enregistrée (${z ? z.nom : 'hors zone'})${fus.length ? ', fusionnée avec '+fus.length+' point'+(fus.length > 1 ? 's' : '')+' « trop petit »' : ''}. Le point est gardé pour saisir une autre espèce ici.` : 'Passage à vide enregistré.');
-  F.qte = -1; F.taille = -1; F.decision = DECISIONS[0]; $('fRem').value = '';
+  F.qte = -1; F.taille = -1; F.decision = DECISIONS[0]; $('fRem').value = ''; $('fTraces').checked = false;
   gQty.paint(); gSize.paint(); chipsG($('cDec'), DECISIONS, () => F.decision, v => { F.decision = v; renderFusion(); });
   renderAll();
 }
@@ -1043,12 +1082,10 @@ function openEdit(uid){
   chipsG($('edDec'), DECISIONS, () => E.decision, v => E.decision = v);
   chipsG($('edPick'), PICKERS, () => E.cueilleur, v => E.cueilleur = v);
   if (!gQtyE){
-    gQtyE = grad($('edQty'), QTY, {aria:'Quantité', get:() => E.qte, set:v => E.qte = v, out:$('edQtyOut'),
-      text:v => QTY[v] === '+' ? 'plus de 50' : 'environ '+QTY[v], readout:v => QTY[v] === '+' ? '<b>Plus de 50</b> champignons' : `Environ <b>${QTY[v]}</b> champignons`});
-    gSizeE = grad($('edSize'), SIZES.map(s => s.k), {aria:'Taille', get:() => E.taille, set:v => E.taille = v, out:$('edSizeOut'),
-      text:v => sizeStr(v), readout:v => `<b>${esc(SIZES[v].l)}</b> · ${esc(SIZES[v].cm)}`});
+    gQtyE = grad($('edQty'), QTY, qtyOpts(() => E.qte, v => E.qte = v, $('edQtyOut')));
+    gSizeE = grad($('edSize'), SIZES.map(s => s.k), sizeOpts(() => E.taille, v => E.taille = v, $('edSizeOut')));
   } else { gQtyE.paint(); gSizeE.paint(); }
-  $('edRem').value = r.remarques || '';
+  $('edRem').value = r.remarques || ''; $('edTraces').checked = !!r.traces;
   $('edMsg').textContent = ''; $('edDel').textContent = 'Supprimer'; $('edDel').classList.remove('confirm');
   $('editDlg').showModal();
 }
@@ -1060,7 +1097,7 @@ function applyEdit(uid, ch){
 }
 function saveEdit(){
   const r = REC.find(x => x.uid === E.uid); if (!r) return;
-  const ch = {remarques:$('edRem').value.trim(), cueilleur:E.cueilleur};
+  const ch = {remarques:$('edRem').value.trim(), cueilleur:E.cueilleur, traces:$('edTraces').checked};
   if (r.type === 'Cueillette') Object.assign(ch, {espece:E.espece, decision:E.decision,
     qte:E.qte >= 0 ? QTY[E.qte] : (r.qte || ''), taille:E.taille >= 0 ? sizeStr(E.taille) : (r.taille || '')});
   applyEdit(E.uid, ch); $('editDlg').close();
@@ -1073,6 +1110,13 @@ function deleteEdit(){
   toast(r && r.synced ? 'Saisie supprimée. La suppression partira à la prochaine synchro.' : 'Saisie supprimée.');
 }
 function placeName(r){ const z = zById(zoneOfRec(r)); return z ? z.nom : 'hors zone'; }
+function lotHtml(r, withDate){
+  const what = r.type === 'Cueillette' ? [esc(r.espece), esc(r.qte), esc(r.taille)].filter(Boolean).join(' · ') : 'Rien trouvé';
+  return `<div class="lot"><span class="dot" style="background:${r.espece ? `var(${SP_VAR[r.espece]})` : 'var(--empty)'}"></span>
+    <div><div>${withDate ? `<b>${fmtY(r.date)}</b> · ` : ''}${what}</div><div class="meta">${esc(placeName(r))}${r.cueilleur ? ' · '+esc(r.cueilleur) : ''}${r.decision ? ' · '+esc(r.decision) : ''}${r.traces ? ' · traces de cueilleurs' : ''}${isMerged(r) ? ' · fusionné' : ''}</div></div>
+    <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="st ${r.synced && !r.edited ? 'ok' : 'wait'}">${!r.synced ? 'En attente' : r.edited ? 'Modifié' : 'Envoyé'}</span>
+      <button type="button" class="linkbtn" data-ed="${esc(r.uid)}">Modifier</button></span></div>`;
+}
 function renderBilan(){
   const day = saisieDate();
   $('bilanTitle').textContent = day === TODAY ? 'Bilan du jour' : 'Bilan du ' + fmtLong(day);
@@ -1085,13 +1129,7 @@ function renderBilan(){
     const rep = p ? lots.filter(isPicked).map(r => `${esc(placeName(r))} ≈ ${estWeight(r)} g`).join(' · ') : '';
     return `<div class="tot"><span><span class="dot" style="background:var(${SP_VAR[sp]})"></span> ${esc(sp)}</span><span>${lots.length} lot${lots.length>1?'s':''} · <b>${p ? p.poids+' g' : 'pesée à faire'}</b></span></div>${rep ? `<div class="rep">Répartition estimée : ${rep}</div>` : ''}`;
   }).join('');
-  h += recs.map(r => {
-    const what = r.type === 'Cueillette' ? [esc(r.espece), r.qte ? (r.qte === '+' ? '50+' : '≈'+esc(r.qte)) : '', esc((r.taille||'').split(' (')[0])].filter(Boolean).join(' · ') : 'Rien trouvé';
-    return `<div class="lot"><span class="dot" style="background:${r.espece ? `var(${SP_VAR[r.espece]})` : 'var(--empty)'}"></span>
-      <div><div>${what}</div><div class="meta">${esc(placeName(r))}${r.cueilleur ? ' · '+esc(r.cueilleur) : ''}${r.decision ? ' · '+esc(r.decision) : ''}</div></div>
-      <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="st ${r.synced && !r.edited ? 'ok' : 'wait'}">${!r.synced ? 'En attente' : r.edited ? 'Modifié' : 'Envoyé'}</span>
-        <button type="button" class="linkbtn" data-ed="${esc(r.uid)}">Modifier</button></span></div>`;
-  }).join('');
+  h += recs.map(r => lotHtml(r)).join('');
   el.innerHTML = h;
   el.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => openEdit(b.dataset.ed));
 }
@@ -1180,7 +1218,7 @@ function renderZones(){
   const chips = st => st.sp.map(s => `<span class="src">${esc(SP_SHORT[s])}</span>`).join('');
   $('zList').innerHTML = rows.map(({z,st}) => `<details class="sec zrow"><summary>
       <span class="dot" style="width:14px;height:14px;background:${st.dom ? `var(${SP_VAR[st.dom]})` : 'var(--empty)'}"></span>
-      <span style="min-width:0"><span class="nm">${esc(z.nom)}</span> <span class="ha">${fmtArea(areaM2(z.pts))} · ${z.pts.length} sommets</span>
+      <span style="min-width:0"><span class="nm">${esc(z.nom)}</span> <span class="ha">${fmtArea(areaM2(z.pts))} · ${z.pts.length} sommets${z.pression ? ' · pression '+esc(z.pression.toLowerCase()) : ''}</span>
         <span class="sps">${chips(st)}${st.small ? `<span class="src" style="color:#b45309;border-color:#e0701c">${st.small} à revoir</span>` : ''}</span></span>
       <span style="text-align:right;font-size:.82rem;color:var(--muted);line-height:1.3"><b style="color:var(--ink);font-size:1rem">${st.found.length}</b> cueill.<br>${st.years.join(' ')}</span></summary>
       <div class="inner"><div class="acts">
@@ -1216,6 +1254,8 @@ function startDraw(id){
   $('drawBar').hidden = false; $('zNew').hidden = true;
   $('drawTitle').textContent = z ? `Modifier « ${z.nom} »` : 'Nouvelle zone';
   $('zName').value = z ? z.nom : `Zone #${nextZoneNum()}`;
+  draw.pression = z && z.pression ? z.pression : 'Inconnue';
+  chipsG($('zPress'), PRESSIONS, () => draw.pression, v => draw.pression = v);
   big.closePopup();
   renderZones();
   if (z) big.fitBounds(z.pts, {padding:[40,40]});
@@ -1249,7 +1289,7 @@ async function saveZone(){
   const nom = $('zName').value.trim() || `Zone #${nextZoneNum()}`;
   $('zSave').disabled = true; $('zSave').textContent = 'Enregistrement…';
   try {
-    await api('zone', {zone:{id:draw.id, nom, pts:draw.pts}});
+    await api('zone', {zone:{id:draw.id, nom, pts:draw.pts, pression:draw.pression === 'Inconnue' ? '' : draw.pression}});
     endDraw(); toast(`Zone « ${nom} » enregistrée. Recalcul des cueillettes…`);
     await refresh(true);
     toast(`Zone « ${nom} » enregistrée.`);
@@ -1272,6 +1312,12 @@ function fillPlaceSelect(){
   const ok = [...$('aPlace').options].some(o => o.value === cur);
   $('aPlace').value = ok ? cur : (zs[0] ? 'Z:'+zs[0].id : 'all');
 }
+function renderLast(place, sp){
+  const list = REC.filter(r => place.filter(r) && (sp === 'all' || r.type !== 'Cueillette' || r.espece === sp)).slice(-20).reverse();
+  $('lastTitle').textContent = `20 dernières saisies · ${place.name}`;
+  $('lastList').innerHTML = list.length ? list.map(r => lotHtml(r, true)).join('') : '<p class="hint">Aucune saisie pour ce choix.</p>';
+  $('lastList').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => openEdit(b.dataset.ed));
+}
 function goAnalyse(v){ fillPlaceSelect(); $('aPlace').value = v; showTab('analyse'); }
 function placeInfo(v){
   if (v && v.startsWith('Z:')){ const z = zById(v.slice(2)); if (z){ const c = centroid(z.pts); return {name:z.nom, zone:zoneKeyOf(c.lat,c.lng), filter:r => zoneOfRec(r) === z.id}; } }
@@ -1293,7 +1339,7 @@ function analyse(place, sp, MET){
     if (first){ const c = eps.filter(e => { const d = diffDays(first,e); return d >= 3 && d <= 25; }); ep = c.length ? c[c.length-1] : null; if (ep) delay = diffDays(first, ep); }
     const w = found.map(estWeight).filter(v => v != null);
     return {y, found, vide, first, last, eps, ep, delay, kg: w.length ? w.reduce((s,v) => s+v, 0)/1000 : null,
-      nbC:new Set(found.map(r => r.date)).size, nbV:new Set(vide.map(r => r.date)).size};
+      nbC:new Set(found.map(r => r.date)).size, nbV:new Set(vide.map(r => r.date)).size, nbT:new Set(recs.filter(r => r.traces).map(r => r.date)).size};
   });
 }
 function monthStats(ser, y){
@@ -1317,6 +1363,7 @@ async function renderAnalyse(){
   const {series:MET, src} = await getMeteo(place.zone);
   if (tok !== anToken) return;
   const A = analyse(place, sp, MET);
+  renderLast(place, sp);
   const {seuil, win} = S.settings;
   const spName = sp === 'all' ? 'toutes espèces' : sp.toLowerCase();
   const past = A.filter(a => a.delay != null && a.y !== CUR_Y);
@@ -1344,9 +1391,11 @@ async function renderAnalyse(){
       <td>${a.first ? fmt(a.first) : '—'}<span class="sub">${a.delay != null ? `J+${a.delay} après le ${fmt(a.ep)}` : a.first ? 'pas d\'épisode net avant' : 'aucune cueillette'}</span></td>
       <td>${a.first ? `${fmt(a.first)} → ${fmt(a.last)}` : '—'}<span class="sub">${a.first ? (diffDays(a.last,a.first)+1)+' j' : ''}</span></td>
       <td><span class="cv"><b>${a.nbC}</b> / ${a.nbV}
-        <i style="width:${Math.round(a.nbC/maxN*60)}px;background:var(--moss)"></i><i style="width:${Math.round(a.nbV/maxN*60)}px;background:var(--empty)"></i></span></td>
+        <i style="width:${Math.round(a.nbC/maxN*60)}px;background:var(--moss)"></i><i style="width:${Math.round(a.nbV/maxN*60)}px;background:var(--empty)"></i></span>${a.nbT ? `<span class="sub">${a.nbT} sortie${a.nbT > 1 ? 's' : ''} avec traces de cueilleurs</span>` : ''}</td>
       <td>${a.kg != null ? a.kg.toFixed(2).replace('.',',')+' kg' : '—'}</td></tr>`).join('') + '</tbody>';
 
+  const zv = $('aPlace').value, zz = zv && zv.startsWith('Z:') ? zById(zv.slice(2)) : null;
+  $('recNote').textContent = zz ? (zz.pression ? `Pression des autres cueilleurs sur cette zone : ${zz.pression.toLowerCase()}.` : 'Pression des autres cueilleurs non renseignée pour cette zone (onglet Zones › Modifier).') : '';
   const MS = A.map(a => ({y:a.y, m:monthStats(MET[a.y], a.y)}));
   const maxR = Math.max(1, ...MS.flatMap(x => [8,9,10,11].map(m => x.m[m]?.sum || 0)));
   const cell = v => v ? `<td class="bar" style="--w:${Math.round(v.sum/maxR*100)}%">${v.sum} mm${v.partial ? '<span class="sub">au '+fmt(TODAY)+'</span>' : ''}</td>` : '<td>—</td>';
@@ -1540,7 +1589,7 @@ async function loadPhotos(){
 /* ================= Réglages ================= */
 function zoomHint(){
   const z = mini && mini.getZoom ? mini.getZoom() : null;
-  $('rHeatZHint').textContent = `En dessous de ce zoom, les points se fondent en carte de chaleur ; au-dessus, chaque cueillette (imports compris) est un point.${typeof z === 'number' ? ` Zoom actuel de la carte de saisie : ${z}.` : ''}`;
+  $('rHeatZHint').textContent = `À ce zoom et au-dessus, chaque cueillette est un point. En dessous, seuls les points qui se chevauchent se fondent en carte de chaleur ; les points isolés restent visibles.${typeof z === 'number' ? ` Zoom actuel de la carte de saisie : ${z}.` : ''}`;
 }
 function initReglages(){
   const st = S.settings;
